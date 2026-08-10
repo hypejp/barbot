@@ -48,6 +48,11 @@ last_greeting_response_at = 0.0
 last_greeting_response_by_nick = {}
 greeting_reply_history = []
 
+# JOIN-based welcome state. Only users who have actually JOINed ##bar-jp
+# are eligible for a welcome, and eligibility expires after 60 seconds.
+WELCOME_WINDOW = 60
+welcome_candidates = {}
+
 last_activity = time.time()
 
 # Idle messages are scheduled 3.5-5.5 hours after the latest human message.
@@ -632,6 +637,38 @@ def name_response(nick):
         return random.choice(REGULAR_NAME_RESPONSES)
     return random.choice(NAME_RESPONSES)
 
+def welcome_key(nick):
+    """Normalize a nick for the short-lived JOIN welcome candidate table."""
+    return nick.lower()
+
+
+def prune_welcome_candidates(now=None):
+    """Remove JOIN welcome candidates whose 60-second window has expired."""
+    if now is None:
+        now = time.time()
+
+    expired = [
+        key for key, joined_at in welcome_candidates.items()
+        if now - joined_at > WELCOME_WINDOW
+    ]
+    for key in expired:
+        welcome_candidates.pop(key, None)
+
+
+def is_welcome_candidate(nick, now=None):
+    """Return True only while nick is inside its post-JOIN welcome window."""
+    if now is None:
+        now = time.time()
+
+    prune_welcome_candidates(now)
+    return welcome_key(nick) in welcome_candidates
+
+
+def consume_welcome_candidate(nick):
+    """Remove a nick after barbot has actually welcomed it."""
+    welcome_candidates.pop(welcome_key(nick), None)
+
+
 def is_greeting_message(msg):
     """Return True only for short, greeting-like messages."""
     normalized = re.sub(r"[!！?？。、,.]+$", "", msg.strip().lower())
@@ -676,6 +713,11 @@ def should_greeting_respond(nick, msg, now):
         return False
 
     if nick == NICK or not is_greeting_message(msg):
+        return False
+
+    # Never welcome someone merely because they spoke: they must have JOINed
+    # ##bar-jp within the last 60 seconds.
+    if not is_welcome_candidate(nick, now):
         return False
 
     if now - last_greeting_response_at < GREETING_GLOBAL_COOLDOWN:
@@ -735,9 +777,20 @@ class BarBot(irc.bot.SingleServerIRCBot):
     def on_join(self, c, e):
         try:
             nick = e.source.nick
+            now = time.time()
+
             if nick != NICK:
-                seen[nick] = time.time()
+                seen[nick] = now
                 save_json(SEEN_FILE, seen)
+
+            # Only a real JOIN creates a Welcome candidate. hype and barbot
+            # are deliberately excluded.
+            if welcome_key(nick) not in {
+                welcome_key(OWNER_NICK),
+                welcome_key(NICK),
+            }:
+                prune_welcome_candidates(now)
+                welcome_candidates[welcome_key(nick)] = now
         except Exception:
             pass
 
@@ -785,8 +838,9 @@ class BarBot(irc.bot.SingleServerIRCBot):
                     recent_history.pop(0)
 
                 first_speak_replied = False
-                if check_first_speak(nick):
+                if is_welcome_candidate(nick, now) and check_first_speak(nick):
                     c.privmsg(CHANNEL, random.choice(FIRST_SPEAK_REPLIES))
+                    consume_welcome_candidate(nick)
                     first_speak_replied = True
 
                 if should_auto_quote(nick, msg):
@@ -979,6 +1033,7 @@ class BarBot(irc.bot.SingleServerIRCBot):
                 and should_greeting_respond(nick, msg, now)
             ):
                 c.privmsg(CHANNEL, choose_greeting_reply())
+                consume_welcome_candidate(nick)
 
             elif not msg.startswith("!") and should_name_respond(nick, msg):
                 c.privmsg(CHANNEL, name_response(nick))
