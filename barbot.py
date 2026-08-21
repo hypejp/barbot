@@ -580,6 +580,7 @@ def fetch_title(url):
                 return title.strip()[:120]
 
         r = requests.get(url, timeout=3)
+        r.raise_for_status()
         r.encoding = r.apparent_encoding
         soup = BeautifulSoup(r.text, "html.parser")
         if soup.title and soup.title.string:
@@ -715,9 +716,8 @@ def should_greeting_respond(nick, msg, now):
     if nick == NICK or not is_greeting_message(msg):
         return False
 
-    # Never welcome someone merely because they spoke: they must have JOINed
-    # ##bar-jp within the last 60 seconds.
-    if not is_welcome_candidate(nick, now):
+    # Let the JOIN-based welcome handler take care of recent joiners.
+    if is_welcome_candidate(nick, now):
         return False
 
     if now - last_greeting_response_at < GREETING_GLOBAL_COOLDOWN:
@@ -764,7 +764,14 @@ def drink_alias_response(msg):
 
 class BarBot(irc.bot.SingleServerIRCBot):
     def __init__(self):
-        factory = irc.connection.Factory(wrapper=ssl.wrap_socket)
+        context = ssl.create_default_context()
+        context.load_cert_chain(
+            certfile=str(BASE / ".config/barbot/certs/barbot.crt"),
+            keyfile=str(BASE / ".config/barbot/certs/barbot.key"),
+        )
+        factory = irc.connection.Factory(
+            wrapper=lambda sock: context.wrap_socket(sock, server_hostname=SERVER)
+        )
         super().__init__([(SERVER, PORT)], NICK, NICK, connect_factory=factory)
         self.idle_thread_started = False
 
