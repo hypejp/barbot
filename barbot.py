@@ -55,10 +55,10 @@ welcome_candidates = {}
 
 last_activity = time.time()
 
-# Idle messages are scheduled 3.5-5.5 hours after the latest human message.
+# Idle messages are scheduled 5-7 hours after the latest human message.
 IDLE_SECONDS = 60 * 60
-IDLE_MIN_SECONDS = 3 * 60 * 60 + 30 * 60
-IDLE_MAX_SECONDS = 5 * 60 * 60 + 30 * 60
+IDLE_MIN_SECONDS = 5 * 60 * 60
+IDLE_MAX_SECONDS = 7 * 60 * 60
 IDLE_HISTORY_SIZE = 20
 
 idle_line_history = []
