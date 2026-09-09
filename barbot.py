@@ -770,8 +770,8 @@ class BarBot(irc.bot.SingleServerIRCBot):
         self.idle_thread_started = False
 
     def on_welcome(self, c, e):
+        print(f"barbot connected to IRC; joining {CHANNEL}", flush=True)
         c.join(CHANNEL)
-        print(f"barbot connected to IRC and joined {CHANNEL}", flush=True)
         if not self.idle_thread_started:
             self.idle_thread_started = True
             threading.Thread(target=self.idle_loop, args=(c,), daemon=True).start()
@@ -780,6 +780,9 @@ class BarBot(irc.bot.SingleServerIRCBot):
         try:
             nick = e.source.nick
             now = time.time()
+
+            if nick == NICK:
+                print(f"barbot joined {e.target}", flush=True)
 
             if nick != NICK:
                 seen[nick] = now
