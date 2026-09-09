@@ -771,6 +771,7 @@ class BarBot(irc.bot.SingleServerIRCBot):
 
     def on_welcome(self, c, e):
         c.join(CHANNEL)
+        print(f"barbot connected to IRC and joined {CHANNEL}", flush=True)
         if not self.idle_thread_started:
             self.idle_thread_started = True
             threading.Thread(target=self.idle_loop, args=(c,), daemon=True).start()
