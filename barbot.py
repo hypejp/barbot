@@ -194,7 +194,6 @@ FIRST_SPEAK_REPLIES = [
 ]
 
 GREETING_REPLIES = [
-    "Hello. The lights are low tonight. 🍸",
     "Hi. Take the quiet seat by the counter.",
     "Welcome back. Your corner is still here.",
     "静かな時間をどうぞ。",
