@@ -685,6 +685,16 @@ def recent_human_message_count(now, seconds, exclude_current=True):
     items = recent_history[:-1] if exclude_current and recent_history else recent_history
     return sum(1 for _nick, _msg, ts in items if now - ts <= seconds)
 
+def recent_other_speaker_count(now, seconds, current_nick):
+    """Count distinct recent speakers other than the current speaker."""
+    items = recent_history[:-1] if recent_history else recent_history
+    speakers = {
+        nick
+        for nick, _msg, ts in items
+        if now - ts <= seconds and nick != current_nick and nick != NICK
+    }
+    return len(speakers)
+
 def choose_greeting_reply():
     """Avoid repeating recently used greeting replies."""
     available = [line for line in GREETING_REPLIES if line not in greeting_reply_history]
@@ -721,6 +731,10 @@ def should_greeting_respond(nick, msg, now):
 
     # Do not interrupt a quick exchange already in progress.
     if recent_human_message_count(now, 30) >= 3:
+        return False
+
+    # Stay quiet when several other people are already conversing.
+    if recent_other_speaker_count(now, 90, nick) >= 2:
         return False
 
     five_minute_count = recent_human_message_count(now, 5 * 60)
