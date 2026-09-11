@@ -18,7 +18,7 @@ NICK = "barbot"
 CHANNEL = "##bar-jp"
 
 OWNER_NICK = "hype"
-VERSION = "barbot 2026-08 ambience edition"
+VERSION = "barbot 2.0.0"
 BOT_STARTED_AT = time.time()
 
 BASE = Path.home()
