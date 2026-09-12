@@ -685,15 +685,23 @@ def recent_human_message_count(now, seconds, exclude_current=True):
     items = recent_history[:-1] if exclude_current and recent_history else recent_history
     return sum(1 for _nick, _msg, ts in items if now - ts <= seconds)
 
-def recent_other_speaker_count(now, seconds, current_nick):
-    """Count distinct recent speakers other than the current speaker."""
+def recent_conversation_state(now, current_nick=None, seconds=90):
+    """Classify recent human activity as quiet, solo, or conversation."""
     items = recent_history[:-1] if recent_history else recent_history
     speakers = {
         nick
         for nick, _msg, ts in items
-        if now - ts <= seconds and nick != current_nick and nick != NICK
+        if now - ts <= seconds and nick != NICK
     }
-    return len(speakers)
+
+    if current_nick and current_nick != NICK:
+        speakers.add(current_nick)
+
+    if not speakers:
+        return "quiet"
+    if len(speakers) == 1:
+        return "solo"
+    return "conversation"
 
 def choose_greeting_reply():
     """Avoid repeating recently used greeting replies."""
@@ -733,8 +741,8 @@ def should_greeting_respond(nick, msg, now):
     if recent_human_message_count(now, 30) >= 3:
         return False
 
-    # Stay quiet when several other people are already conversing.
-    if recent_other_speaker_count(now, 90, nick) >= 2:
+    # Stay quiet when a human conversation is already in progress.
+    if recent_conversation_state(now, nick) == "conversation":
         return False
 
     five_minute_count = recent_human_message_count(now, 5 * 60)
