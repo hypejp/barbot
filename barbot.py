@@ -882,7 +882,7 @@ class BarBot(irc.bot.SingleServerIRCBot):
             if msg == "!help":
                 c.privmsg(
                     CHANNEL,
-                    "!ping !menu !drink [category] !history !who !topic !quote !quote list !quote add text !quote del number(owner) !rank !seen nick !autoquote on/off/status !uptime !about !version !mood"
+                    "!ping !menu !drink [category] !history !who !topic !quote [list/add/del] !rank(quote) !seen nick !autoquote [on/off/status] !uptime !about !version !mood"
                 )
 
             elif msg == "!ping":
