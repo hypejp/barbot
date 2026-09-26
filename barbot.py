@@ -9,6 +9,7 @@ import re
 import json
 import threading
 from pathlib import Path
+from urllib.parse import quote_plus
 import requests
 from bs4 import BeautifulSoup
 
@@ -776,6 +777,27 @@ def drink_alias_response(msg):
 
     return None
 
+
+def load_citypop():
+    path = BASE / "citypop.tsv"
+    tracks = []
+
+    try:
+        with path.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.rstrip("\r\n")
+                if not line:
+                    continue
+                artist, title = line.split("\t", 1)
+                tracks.append((artist, title))
+    except Exception as e:
+        print(f"Failed to load citypop.tsv: {e}", flush=True)
+
+    return tracks
+
+
+CITYPOP_TRACKS = load_citypop()
+
 class BarBot(irc.bot.SingleServerIRCBot):
     def __init__(self):
         context = ssl.create_default_context()
@@ -882,7 +904,7 @@ class BarBot(irc.bot.SingleServerIRCBot):
             if msg == "!help":
                 c.privmsg(
                     CHANNEL,
-                    "!ping !menu !drink [category] !history !who !topic !quote [list/add/del] !rank(quote) !seen nick !autoquote [on/off/status] !uptime !about !version !mood"
+                    "!ping !menu !drink [category] !citypop !history !who !topic !quote [list/add/del] !rank(quote) !seen nick !autoquote [on/off/status] !uptime !about !version !mood"
                 )
 
             elif msg == "!ping":
@@ -924,6 +946,15 @@ class BarBot(irc.bot.SingleServerIRCBot):
                         c.privmsg(CHANNEL, alias)
                     else:
                         c.privmsg(CHANNEL, f"No drinks found for '{category}'. Try !menu")
+
+            elif msg == "!citypop":
+                if CITYPOP_TRACKS:
+                    artist, title = random.choice(CITYPOP_TRACKS)
+                    url = "https://www.youtube.com/results?search_query=" + quote_plus(f"{artist} {title}")
+                    c.privmsg(CHANNEL, f"{artist} — {title}")
+                    c.privmsg(CHANNEL, url)
+                else:
+                    c.privmsg(CHANNEL, "City pop playlist is empty.")
 
             elif msg == "!history":
                 if recent_history:
