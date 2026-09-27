@@ -8,6 +8,7 @@ import time
 import re
 import json
 import threading
+from collections import deque
 from pathlib import Path
 from urllib.parse import quote_plus
 import requests
@@ -797,6 +798,7 @@ def load_citypop():
 
 
 CITYPOP_TRACKS = load_citypop()
+CITYPOP_RECENT = deque(maxlen=50)
 
 class BarBot(irc.bot.SingleServerIRCBot):
     def __init__(self):
@@ -949,7 +951,15 @@ class BarBot(irc.bot.SingleServerIRCBot):
 
             elif msg == "!citypop":
                 if CITYPOP_TRACKS:
-                    artist, title = random.choice(CITYPOP_TRACKS)
+                    candidates = [track for track in CITYPOP_TRACKS if track not in CITYPOP_RECENT]
+
+                    if not candidates:
+                        CITYPOP_RECENT.clear()
+                        candidates = CITYPOP_TRACKS
+
+                    artist, title = random.choice(candidates)
+                    CITYPOP_RECENT.append((artist, title))
+
                     url = "https://www.youtube.com/results?search_query=" + quote_plus(f"{artist} {title}")
                     c.privmsg(CHANNEL, f"{artist} — {title}")
                     c.privmsg(CHANNEL, url)
