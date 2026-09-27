@@ -961,7 +961,7 @@ class BarBot(irc.bot.SingleServerIRCBot):
                     CITYPOP_RECENT.append((artist, title))
 
                     url = "https://www.youtube.com/results?search_query=" + quote_plus(f"{artist} {title}")
-                    c.privmsg(CHANNEL, f"{artist} — {title}")
+                    c.privmsg(CHANNEL, f"{artist} - {title}")
                     c.privmsg(CHANNEL, url)
                 else:
                     c.privmsg(CHANNEL, "City pop playlist is empty.")
