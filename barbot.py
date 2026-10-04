@@ -8,6 +8,8 @@ import time
 import re
 import json
 import threading
+from datetime import datetime
+import pytz
 from collections import deque
 from pathlib import Path
 from urllib.parse import quote_plus
@@ -31,6 +33,7 @@ DRINK_FILE = BASE / "barbot_drinks.json"
 AUTOQUOTE_FILE = BASE / "barbot_autoquote.json"
 RANK_FILE = BASE / "barbot_rank.json"
 FIRST_SPEAK_FILE = BASE / "barbot_first_speak.json"
+LOCATION_FILE = BASE / "barbot_locations.json"
 
 seen = {}
 quotes = []
@@ -38,6 +41,7 @@ drinks = []
 autoquote_enabled = {}
 rank_data = {}
 first_speak_data = {}
+locations = {}
 
 recent_history = []
 talk_counts = {}
@@ -340,13 +344,14 @@ def fix_mojibake(text):
     return text
 
 def load_all():
-    global seen, quotes, drinks, autoquote_enabled, rank_data, first_speak_data
+    global seen, quotes, drinks, autoquote_enabled, rank_data, first_speak_data, locations
     seen = load_json(SEEN_FILE, {})
     quotes = load_json(QUOTE_FILE, [])
     drinks = load_json(DRINK_FILE, ["Beer 🍺 - とりあえず一杯"])
     autoquote_enabled = load_json(AUTOQUOTE_FILE, {})
     rank_data = load_json(RANK_FILE, {})
     first_speak_data = load_json(FIRST_SPEAK_FILE, {})
+    locations = load_json(LOCATION_FILE, {})
 
 def quote_text(q):
     if isinstance(q, dict):
@@ -779,6 +784,103 @@ def drink_alias_response(msg):
     return None
 
 
+def weather_description(code):
+    weather_codes = {
+        0: "☀️ Clear",
+        1: "🌤 Mainly clear",
+        2: "⛅ Partly cloudy",
+        3: "☁️ Overcast",
+        45: "🌫 Fog",
+        48: "🌫 Rime fog",
+        51: "🌦 Light drizzle",
+        53: "🌦 Drizzle",
+        55: "🌧 Heavy drizzle",
+        56: "🌧 Freezing drizzle",
+        57: "🌧 Heavy freezing drizzle",
+        61: "🌦 Light rain",
+        63: "🌧 Rain",
+        65: "🌧 Heavy rain",
+        66: "🌧 Freezing rain",
+        67: "🌧 Heavy freezing rain",
+        71: "🌨 Light snow",
+        73: "🌨 Snow",
+        75: "❄️ Heavy snow",
+        77: "❄️ Snow grains",
+        80: "🌦 Light showers",
+        81: "🌧 Showers",
+        82: "⛈ Heavy showers",
+        85: "🌨 Snow showers",
+        86: "❄️ Heavy snow showers",
+        95: "⛈ Thunderstorm",
+        96: "⛈ Thunderstorm with hail",
+        99: "⛈ Heavy thunderstorm with hail",
+    }
+    return weather_codes.get(code, "Weather unknown")
+
+
+def get_weather(place):
+    try:
+        r = requests.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": place["latitude"],
+                "longitude": place["longitude"],
+                "current": ",".join([
+                    "temperature_2m",
+                    "apparent_temperature",
+                    "relative_humidity_2m",
+                    "weather_code",
+                    "wind_speed_10m",
+                ]),
+                "wind_speed_unit": "kmh",
+                "timezone": "auto",
+            },
+            timeout=10,
+        )
+        r.raise_for_status()
+        return r.json().get("current")
+
+    except Exception as e:
+        print(f"Weather request failed: {e}", flush=True)
+        return None
+
+
+def geocode_location(location):
+    parts = [part.strip() for part in location.split(",") if part.strip()]
+    city = parts[0]
+    country_hint = parts[-1].lower() if len(parts) > 1 else None
+
+    try:
+        r = requests.get(
+            "https://geocoding-api.open-meteo.com/v1/search",
+            params={
+                "name": city,
+                "count": 10,
+                "language": "en",
+                "format": "json",
+            },
+            timeout=10,
+        )
+        r.raise_for_status()
+        results = r.json().get("results", [])
+
+        if not results:
+            return None
+
+        if country_hint:
+            for result in results:
+                country = (result.get("country") or "").lower()
+                country_code = (result.get("country_code") or "").lower()
+                if country_hint in {country, country_code}:
+                    return result
+
+        return results[0]
+
+    except Exception as e:
+        print(f"Geocoding failed for {location}: {e}", flush=True)
+        return None
+
+
 def load_citypop():
     path = BASE / "citypop.tsv"
     tracks = []
@@ -906,8 +1008,98 @@ class BarBot(irc.bot.SingleServerIRCBot):
             if msg == "!help":
                 c.privmsg(
                     CHANNEL,
-                    "!ping !menu !drink [category] !citypop !history !who !topic !quote [list/add/del] !rank(quote) !seen nick !autoquote [on/off/status] !uptime !about !version !mood"
+                    "!ping !menu !drink [category] !citypop !loc [City, Country] !w [location] !wt [location] !history !who !topic !quote [list/add/del] !rank(quote) !seen nick !autoquote [on/off/status] !uptime !about !version !mood"
                 )
+
+            elif lowered == "!w" or lowered.startswith("!w "):
+                if lowered == "!w":
+                    location = locations.get(nick.lower())
+                    if not location:
+                        c.privmsg(CHANNEL, f"{nick}: no location registered. Use !loc City, Country")
+                        return
+                else:
+                    location = msg[3:].strip()
+
+                place = geocode_location(location)
+
+                if not place:
+                    c.privmsg(CHANNEL, f"{nick}: location not found: {location}")
+                else:
+                    weather = get_weather(place)
+
+                    if not weather:
+                        c.privmsg(CHANNEL, f"{nick}: could not get weather for {location}")
+                    else:
+                        place_name = place.get("name", location)
+                        country = place.get("country", "")
+                        label = f"{place_name}, {country}" if country else place_name
+
+                        description = weather_description(weather.get("weather_code"))
+                        temperature = weather.get("temperature_2m")
+                        feels = weather.get("apparent_temperature")
+                        humidity = weather.get("relative_humidity_2m")
+                        wind = weather.get("wind_speed_10m")
+
+                        c.privmsg(
+                            CHANNEL,
+                            f"{label}: {description}, {temperature}°C "
+                            f"(feels {feels}°C), humidity {humidity}%, wind {wind} km/h"
+                        )
+
+            elif lowered == "!wt" or lowered.startswith("!wt "):
+                if lowered == "!wt":
+                    location = locations.get(nick.lower())
+                    if not location:
+                        c.privmsg(CHANNEL, f"{nick}: no location registered. Use !loc City, Country")
+                        return
+                else:
+                    location = msg[4:].strip()
+
+                place = geocode_location(location)
+
+                if not place:
+                    c.privmsg(CHANNEL, f"{nick}: location not found: {location}")
+                else:
+                    timezone_name = place.get("timezone")
+                    try:
+                        tz = pytz.timezone(timezone_name)
+                        local_time = datetime.now(tz)
+
+                        place_name = place.get("name", location)
+                        country = place.get("country", "")
+                        label = f"{place_name}, {country}" if country else place_name
+
+                        c.privmsg(
+                            CHANNEL,
+                            f"{label}: {local_time.strftime('%H:%M %Z (%a)')}"
+                        )
+                    except Exception as e:
+                        print(f"World time failed for {location}: {e}", flush=True)
+                        c.privmsg(CHANNEL, f"{nick}: could not get local time for {location}")
+
+            elif lowered == "!loc":
+                key = nick.lower()
+                if key in locations:
+                    c.privmsg(CHANNEL, f"{nick}: location: {locations[key]}")
+                else:
+                    c.privmsg(CHANNEL, f"{nick}: no location registered. Use !loc City, Country")
+
+            elif lowered == "!loc clear":
+                key = nick.lower()
+                if key in locations:
+                    del locations[key]
+                    save_json(LOCATION_FILE, locations)
+                    c.privmsg(CHANNEL, f"{nick}: location cleared.")
+                else:
+                    c.privmsg(CHANNEL, f"{nick}: no location registered.")
+
+            elif lowered.startswith("!loc "):
+                location = msg[5:].strip()
+                if location:
+                    key = nick.lower()
+                    locations[key] = location
+                    save_json(LOCATION_FILE, locations)
+                    c.privmsg(CHANNEL, f"{nick}: location set to {location}")
 
             elif msg == "!ping":
                 c.privmsg(CHANNEL, random.choice([
