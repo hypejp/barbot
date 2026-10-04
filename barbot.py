@@ -873,6 +873,7 @@ def geocode_location(location):
                 country_code = (result.get("country_code") or "").lower()
                 if country_hint in {country, country_code}:
                     return result
+            return None
 
         return results[0]
 
@@ -1096,10 +1097,19 @@ class BarBot(irc.bot.SingleServerIRCBot):
             elif lowered.startswith("!loc "):
                 location = msg[5:].strip()
                 if location:
-                    key = nick.lower()
-                    locations[key] = location
-                    save_json(LOCATION_FILE, locations)
-                    c.privmsg(CHANNEL, f"{nick}: location set to {location}")
+                    place = geocode_location(location)
+
+                    if not place:
+                        c.privmsg(CHANNEL, f"{nick}: location not found: {location}")
+                    else:
+                        place_name = place.get("name", location)
+                        country = place.get("country", "")
+                        label = f"{place_name}, {country}" if country else place_name
+
+                        key = nick.lower()
+                        locations[key] = label
+                        save_json(LOCATION_FILE, locations)
+                        c.privmsg(CHANNEL, f"{nick}: location set to {label}")
 
             elif msg == "!ping":
                 c.privmsg(CHANNEL, random.choice([
