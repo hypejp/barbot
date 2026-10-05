@@ -832,13 +832,24 @@ def get_weather(place):
                     "weather_code",
                     "wind_speed_10m",
                 ]),
+                "daily": ",".join([
+                    "weather_code",
+                    "temperature_2m_max",
+                    "temperature_2m_min",
+                    "precipitation_probability_max",
+                ]),
+                "forecast_days": 2,
                 "wind_speed_unit": "kmh",
                 "timezone": "auto",
             },
             timeout=10,
         )
         r.raise_for_status()
-        return r.json().get("current")
+        data = r.json()
+        return {
+            "current": data.get("current"),
+            "daily": data.get("daily"),
+        }
 
     except Exception as e:
         print(f"Weather request failed: {e}", flush=True)
@@ -1031,15 +1042,22 @@ class BarBot(irc.bot.SingleServerIRCBot):
                     if not weather:
                         c.privmsg(CHANNEL, f"{nick}: could not get weather for {location}")
                     else:
+                        current = weather.get("current")
+                        daily = weather.get("daily")
+
+                        if not current:
+                            c.privmsg(CHANNEL, f"{nick}: could not get weather for {location}")
+                            return
+
                         place_name = place.get("name", location)
                         country = place.get("country", "")
                         label = f"{place_name}, {country}" if country else place_name
 
-                        description = weather_description(weather.get("weather_code"))
-                        temperature = weather.get("temperature_2m")
-                        feels = weather.get("apparent_temperature")
-                        humidity = weather.get("relative_humidity_2m")
-                        wind = weather.get("wind_speed_10m")
+                        description = weather_description(current.get("weather_code"))
+                        temperature = current.get("temperature_2m")
+                        feels = current.get("apparent_temperature")
+                        humidity = current.get("relative_humidity_2m")
+                        wind = current.get("wind_speed_10m")
 
                         temperature_f = round(temperature * 9 / 5 + 32, 1)
                         feels_f = round(feels * 9 / 5 + 32, 1)
@@ -1049,6 +1067,31 @@ class BarBot(irc.bot.SingleServerIRCBot):
                             f"{label}: {description}, {temperature}°C / {temperature_f}°F "
                             f"(feels {feels}°C / {feels_f}°F), humidity {humidity}%, wind {wind} km/h"
                         )
+
+                        if daily:
+                            codes = daily.get("weather_code", [])
+                            highs = daily.get("temperature_2m_max", [])
+                            lows = daily.get("temperature_2m_min", [])
+                            rain = daily.get("precipitation_probability_max", [])
+
+                            if all(len(values) >= 2 for values in (codes, highs, lows, rain)):
+                                forecasts = []
+
+                                for name, i in (("Today", 0), ("Tomorrow", 1)):
+                                    high_f = round(highs[i] * 9 / 5 + 32, 1)
+                                    low_f = round(lows[i] * 9 / 5 + 32, 1)
+                                    desc = weather_description(codes[i])
+
+                                    forecasts.append(
+                                        f"{name}: {desc}, "
+                                        f"{highs[i]}/{lows[i]}°C "
+                                        f"({high_f}/{low_f}°F), rain {rain[i]}%"
+                                    )
+
+                                c.privmsg(
+                                    CHANNEL,
+                                    "Forecast: " + " | ".join(forecasts)
+                                )
 
             elif lowered == "!wt" or lowered.startswith("!wt "):
                 if lowered == "!wt":
