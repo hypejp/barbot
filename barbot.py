@@ -1041,10 +1041,13 @@ class BarBot(irc.bot.SingleServerIRCBot):
                         humidity = weather.get("relative_humidity_2m")
                         wind = weather.get("wind_speed_10m")
 
+                        temperature_f = round(temperature * 9 / 5 + 32, 1)
+                        feels_f = round(feels * 9 / 5 + 32, 1)
+
                         c.privmsg(
                             CHANNEL,
-                            f"{label}: {description}, {temperature}°C "
-                            f"(feels {feels}°C), humidity {humidity}%, wind {wind} km/h"
+                            f"{label}: {description}, {temperature}°C / {temperature_f}°F "
+                            f"(feels {feels}°C / {feels_f}°F), humidity {humidity}%, wind {wind} km/h"
                         )
 
             elif lowered == "!wt" or lowered.startswith("!wt "):
