@@ -20,6 +20,7 @@ SERVER = "irc.libera.chat"
 PORT = 6697
 NICK = "barbot"
 CHANNEL = "##bar-jp"
+TEST_CHANNEL = "#botters-test"
 
 OWNER_NICK = "hype"
 VERSION = "barbot 2.0.0"
@@ -928,8 +929,9 @@ class BarBot(irc.bot.SingleServerIRCBot):
         self.idle_thread_started = False
 
     def on_welcome(self, c, e):
-        print(f"barbot connected to IRC; joining {CHANNEL}", flush=True)
+        print(f"barbot connected to IRC; joining {CHANNEL} and {TEST_CHANNEL}", flush=True)
         c.join(CHANNEL)
+        c.join(TEST_CHANNEL)
         if not self.idle_thread_started:
             self.idle_thread_started = True
             threading.Thread(target=self.idle_loop, args=(c,), daemon=True).start()
@@ -941,6 +943,10 @@ class BarBot(irc.bot.SingleServerIRCBot):
 
             if nick == NICK:
                 print(f"barbot joined {e.target}", flush=True)
+
+            # Keep #botters-test completely separate from ##bar-jp state.
+            if e.target.lower() == TEST_CHANNEL.lower():
+                return
 
             if nick != NICK:
                 seen[nick] = now
@@ -987,9 +993,122 @@ class BarBot(irc.bot.SingleServerIRCBot):
             msg = fix_mojibake(raw_msg)
             nick = e.source.nick
             now = time.time()
+            lowered = msg.lower()
+
+            # #botters-test is an isolated external test channel.
+            # Do not mix its activity with ##bar-jp history/welcome state.
+            if e.target.lower() == TEST_CHANNEL.lower():
+                target = e.target
+
+                if msg == "!help":
+                    c.privmsg(
+                        target,
+                        "!ping !w [location] !wt [location] !uptime !about !version"
+                    )
+
+                elif msg == "!ping":
+                    c.privmsg(target, "pong 🍺")
+
+                elif lowered.startswith("!w "):
+                    location = msg[3:].strip()
+                    place = geocode_location(location)
+
+                    if not place:
+                        c.privmsg(target, f"{nick}: location not found: {location}")
+                    else:
+                        weather = get_weather(place)
+
+                        if not weather:
+                            c.privmsg(target, f"{nick}: could not get weather for {location}")
+                        else:
+                            current = weather.get("current")
+                            daily = weather.get("daily")
+
+                            if not current:
+                                c.privmsg(target, f"{nick}: could not get weather for {location}")
+                            else:
+                                place_name = place.get("name", location)
+                                country = place.get("country", "")
+                                label = f"{place_name}, {country}" if country else place_name
+
+                                description = weather_description(current.get("weather_code"))
+                                temperature = current.get("temperature_2m")
+                                feels = current.get("apparent_temperature")
+                                humidity = current.get("relative_humidity_2m")
+                                wind = current.get("wind_speed_10m")
+
+                                temperature_f = round(temperature * 9 / 5 + 32, 1)
+                                feels_f = round(feels * 9 / 5 + 32, 1)
+
+                                c.privmsg(
+                                    target,
+                                    f"{label}: {description}, {temperature}°C / {temperature_f}°F "
+                                    f"(feels {feels}°C / {feels_f}°F), humidity {humidity}%, wind {wind} km/h"
+                                )
+
+                                if daily:
+                                    codes = daily.get("weather_code", [])
+                                    highs = daily.get("temperature_2m_max", [])
+                                    lows = daily.get("temperature_2m_min", [])
+                                    rain = daily.get("precipitation_probability_max", [])
+
+                                    if all(len(values) >= 2 for values in (codes, highs, lows, rain)):
+                                        forecasts = []
+
+                                        for name, i in (("Today", 0), ("Tomorrow", 1)):
+                                            high_f = round(highs[i] * 9 / 5 + 32, 1)
+                                            low_f = round(lows[i] * 9 / 5 + 32, 1)
+                                            desc = weather_description(codes[i])
+
+                                            forecasts.append(
+                                                f"{name}: {desc}, "
+                                                f"{highs[i]}/{lows[i]}°C "
+                                                f"({high_f}/{low_f}°F), rain {rain[i]}%"
+                                            )
+
+                                        c.privmsg(
+                                            target,
+                                            "Forecast: " + " | ".join(forecasts)
+                                        )
+
+                elif lowered.startswith("!wt "):
+                    location = msg[4:].strip()
+                    place = geocode_location(location)
+
+                    if not place:
+                        c.privmsg(target, f"{nick}: location not found: {location}")
+                    else:
+                        timezone_name = place.get("timezone")
+                        try:
+                            tz = pytz.timezone(timezone_name)
+                            local_time = datetime.now(tz)
+                            place_name = place.get("name", location)
+                            country = place.get("country", "")
+                            label = f"{place_name}, {country}" if country else place_name
+                            c.privmsg(
+                                target,
+                                f"{label}: {local_time.strftime('%H:%M %Z (%a)')}"
+                            )
+                        except Exception as ex:
+                            print(f"World time failed for {location}: {ex}", flush=True)
+                            c.privmsg(target, f"{nick}: could not get local time for {location}")
+
+                elif msg == "!uptime":
+                    c.privmsg(target, f"barbot uptime: {format_uptime(time.time() - BOT_STARTED_AT)}")
+
+                elif msg == "!about":
+                    c.privmsg(
+                        target,
+                        "barbot is a small IRC bot for ##bar-jp, currently visiting #botters-test for testing. :)"
+                    )
+
+                elif msg == "!version":
+                    c.privmsg(target, VERSION)
+
+                return
+
             last_activity = now
             schedule_next_idle(now)
-            lowered = msg.lower()
 
             if not msg.startswith("!"):
                 recent_history.append((nick, msg, now))
