@@ -35,6 +35,7 @@ AUTOQUOTE_FILE = BASE / "barbot_autoquote.json"
 RANK_FILE = BASE / "barbot_rank.json"
 FIRST_SPEAK_FILE = BASE / "barbot_first_speak.json"
 LOCATION_FILE = BASE / "barbot_locations.json"
+REMINDER_FILE = BASE / "barbot_reminders.json"
 
 seen = {}
 quotes = []
@@ -43,6 +44,7 @@ autoquote_enabled = {}
 rank_data = {}
 first_speak_data = {}
 locations = {}
+reminders = []
 
 recent_history = []
 talk_counts = {}
@@ -345,7 +347,7 @@ def fix_mojibake(text):
     return text
 
 def load_all():
-    global seen, quotes, drinks, autoquote_enabled, rank_data, first_speak_data, locations
+    global seen, quotes, drinks, autoquote_enabled, rank_data, first_speak_data, locations, reminders
     seen = load_json(SEEN_FILE, {})
     quotes = load_json(QUOTE_FILE, [])
     drinks = load_json(DRINK_FILE, ["Beer 🍺 - とりあえず一杯"])
@@ -353,6 +355,7 @@ def load_all():
     rank_data = load_json(RANK_FILE, {})
     first_speak_data = load_json(FIRST_SPEAK_FILE, {})
     locations = load_json(LOCATION_FILE, {})
+    reminders = load_json(REMINDER_FILE, [])
 
 def quote_text(q):
     if isinstance(q, dict):
@@ -386,6 +389,45 @@ def format_uptime(seconds):
     if minutes or not parts:
         parts.append(f"{minutes}m")
     return " ".join(parts)
+
+def format_reminder_time(seconds):
+    seconds = max(0, int(seconds))
+    if seconds > 0:
+        seconds = ((seconds + 59) // 60) * 60
+    days = seconds // 86400
+    seconds %= 86400
+    hours = seconds // 3600
+    seconds %= 3600
+    minutes = seconds // 60
+
+    parts = []
+    if days:
+        parts.append(f"{days}d")
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes or not parts:
+        parts.append(f"{minutes}m")
+    return " ".join(parts)
+
+
+def reminder_emoji(message):
+    text = message.lower()
+
+    emoji_keywords = [
+        ("☕️", ("coffee", "コーヒー")),
+        ("💊", ("medicine", "meds", "medication", "薬")),
+        ("🍺", ("beer", "ビール")),
+        ("🍽️", ("food", "lunch", "dinner", "meal", "ご飯", "昼食", "夕食")),
+        ("🛏️", ("sleep", "bed", "寝る", "睡眠")),
+        ("🚲", ("bike", "bicycle", "cycling", "自転車")),
+    ]
+
+    for emoji, keywords in emoji_keywords:
+        if any(keyword in text for keyword in keywords):
+            return emoji
+
+    return ""
+
 
 def check_first_speak(nick):
     global first_speak_data
@@ -927,6 +969,7 @@ class BarBot(irc.bot.SingleServerIRCBot):
         )
         super().__init__([(SERVER, PORT)], NICK, NICK, connect_factory=factory)
         self.idle_thread_started = False
+        self.reminder_thread_started = False
 
     def on_welcome(self, c, e):
         print(f"barbot connected to IRC; joining {CHANNEL} and {TEST_CHANNEL}", flush=True)
@@ -935,6 +978,10 @@ class BarBot(irc.bot.SingleServerIRCBot):
         if not self.idle_thread_started:
             self.idle_thread_started = True
             threading.Thread(target=self.idle_loop, args=(c,), daemon=True).start()
+
+        if not self.reminder_thread_started:
+            self.reminder_thread_started = True
+            threading.Thread(target=self.reminder_loop, args=(c,), daemon=True).start()
 
     def on_join(self, c, e):
         try:
@@ -977,6 +1024,35 @@ class BarBot(irc.bot.SingleServerIRCBot):
                     pass
                 finally:
                     schedule_next_idle(now)
+
+    def reminder_loop(self, c):
+        global reminders
+
+        while True:
+            time.sleep(10)
+            now = time.time()
+            due = [r for r in reminders if r.get("due", 0) <= now]
+
+            if not due:
+                continue
+
+            for reminder in due:
+                nick = reminder.get("nick", "someone")
+                message = reminder.get("message", "")
+                emoji = reminder_emoji(message)
+                suffix = f" {emoji}" if emoji else ""
+
+                try:
+                    c.privmsg(
+                        CHANNEL,
+                        f"{nick}: ⏰ {message}{suffix}"
+                    )
+                except Exception:
+                    continue
+
+                if reminder in reminders:
+                    reminders.remove(reminder)
+                    save_json(REMINDER_FILE, reminders)
 
     def on_disconnect(self, c, e):
         time.sleep(5)
@@ -1139,8 +1215,82 @@ class BarBot(irc.bot.SingleServerIRCBot):
             if msg == "!help":
                 c.privmsg(
                     CHANNEL,
-                    "!ping !menu !drink [category] !citypop !loc [City, Country] !w [location] !wt [location] !history !who !topic !quote [list/add/del] !rank(quote) !seen nick !autoquote [on/off/status] !uptime !about !version !mood"
+                    "!ping !menu !drink [category] !citypop !remind [5m message/list/del N] !loc [City, Country] !w [location] !wt [location] !history !who !topic !quote [list/add/del] !rank(quote) !seen nick !autoquote [on/off/status] !uptime !about !version !mood"
                 )
+
+            elif lowered == "!remind list":
+                user_reminders = sorted(
+                    (r for r in reminders if r.get("nick", "").lower() == nick.lower()),
+                    key=lambda r: r.get("due", 0),
+                )
+
+                if not user_reminders:
+                    c.privmsg(CHANNEL, f"{nick}: no reminders set")
+                else:
+                    for i, reminder in enumerate(user_reminders, 1):
+                        remaining = format_reminder_time(reminder.get("due", now) - now)
+                        message = reminder.get("message", "")
+                        emoji = reminder_emoji(message)
+                        suffix = f" {emoji}" if emoji else ""
+                        c.privmsg(
+                            CHANNEL,
+                            f"{nick}: ⏰ {i}. {remaining} - {message}{suffix}"
+                        )
+
+            elif lowered.startswith("!remind del "):
+                number_text = msg[len("!remind del "):].strip()
+
+                try:
+                    number = int(number_text)
+                except ValueError:
+                    number = 0
+
+                user_reminders = sorted(
+                    (r for r in reminders if r.get("nick", "").lower() == nick.lower()),
+                    key=lambda r: r.get("due", 0),
+                )
+
+                if number < 1 or number > len(user_reminders):
+                    c.privmsg(CHANNEL, f"{nick}: reminder {number_text} not found")
+                else:
+                    reminder = user_reminders[number - 1]
+                    reminders.remove(reminder)
+                    save_json(REMINDER_FILE, reminders)
+                    c.privmsg(CHANNEL, f"{nick}: reminder {number} deleted")
+
+            elif lowered.startswith("!remind "):
+                match = re.fullmatch(r"!remind\s+(\d+)([mhd])\s+(.+)", msg, re.IGNORECASE)
+
+                if not match:
+                    c.privmsg(CHANNEL, f"{nick}: usage: !remind 5m coffee")
+                else:
+                    amount = int(match.group(1))
+                    unit = match.group(2).lower()
+                    message = match.group(3).strip()
+
+                    multipliers = {
+                        "m": 60,
+                        "h": 60 * 60,
+                        "d": 24 * 60 * 60,
+                    }
+                    delay = amount * multipliers[unit]
+
+                    if amount < 1:
+                        c.privmsg(CHANNEL, f"{nick}: reminder time must be at least 1{unit}")
+                    else:
+                        reminders.append({
+                            "nick": nick,
+                            "due": now + delay,
+                            "message": message,
+                        })
+                        save_json(REMINDER_FILE, reminders)
+
+                        emoji = reminder_emoji(message)
+                        suffix = f" {emoji}" if emoji else ""
+                        c.privmsg(
+                            CHANNEL,
+                            f"{nick}: ⏰ reminder set for {amount}{unit}{suffix}"
+                        )
 
             elif lowered == "!w" or lowered.startswith("!w "):
                 if lowered == "!w":
