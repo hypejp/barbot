@@ -1218,6 +1218,9 @@ class BarBot(irc.bot.SingleServerIRCBot):
                     "!ping !menu !drink [category] !citypop !remind [5m message/list/del N] !loc [City, Country] !w [location] !wt [location] !history !who !topic !quote [list/add/del] !rank(quote) !seen nick !autoquote [on/off/status] !uptime !about !version !mood"
                 )
 
+            elif lowered == "!remind":
+                c.privmsg(CHANNEL, f"{nick}: usage: !remind 5m coffee")
+
             elif lowered == "!remind list":
                 user_reminders = sorted(
                     (r for r in reminders if r.get("nick", "").lower() == nick.lower()),
@@ -1277,6 +1280,8 @@ class BarBot(irc.bot.SingleServerIRCBot):
 
                     if amount < 1:
                         c.privmsg(CHANNEL, f"{nick}: reminder time must be at least 1{unit}")
+                    elif delay > 365 * 24 * 60 * 60:
+                        c.privmsg(CHANNEL, f"{nick}: reminder time must be 365 days or less")
                     else:
                         reminders.append({
                             "nick": nick,
