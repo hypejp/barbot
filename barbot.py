@@ -94,6 +94,17 @@ SOFT_DRINKS = [
     "Juice - 甘いのも悪くない",
 ]
 
+NIHONSHU = [
+    "出羽桜 🍶 - 山形",
+    "上喜元 🍶 - 山形",
+    "浦霞 🍶 - 宮城",
+    "天狗舞 🍶 - 石川",
+    "菊姫 🍶 - 石川",
+    "〆張鶴 🍶 - 新潟",
+    "真澄 🍶 - 長野",
+    "香露 🍶 - 熊本",
+]
+
 IDLE_LINES = [
     "琥珀色の灯りがカウンターに落ちている",
     "氷がゆっくり形を変えていく",
@@ -235,8 +246,6 @@ DRINK_CATEGORIES = {
     "random": [],
     "whisky": ["Ardbeg", "Lagavulin", "Laphroaig", "Whisky", "Highball", "Brandy"],
     "whiskey": ["Ardbeg", "Lagavulin", "Laphroaig", "Whisky", "Highball", "Brandy"],
-    "sake": ["Sake", "日本酒", "Plum Wine"],
-    "nihonshu": ["Sake", "日本酒"],
     "beer": ["Beer"],
     "wine": ["Wine", "Champagne", "Sparkling", "Port", "Sherry"],
     "cocktail": ["Negroni", "Martini", "Margarita", "Daiquiri", "Mojito", "Fizz", "Sour"],
@@ -559,6 +568,9 @@ def category_drinks(category):
 
     if category in ("soft", "nonalcohol"):
         return SOFT_DRINKS
+
+    if category in ("sake", "nihonshu"):
+        return NIHONSHU
 
     keys = DRINK_CATEGORIES.get(category)
     if not keys:
@@ -1453,7 +1465,7 @@ class BarBot(irc.bot.SingleServerIRCBot):
                 c.privmsg(CHANNEL, random.choice(MOOD_LINES))
 
             elif msg == "!menu":
-                c.privmsg(CHANNEL, "Drink categories: random, whisky, sake, nihonshu, beer, wine, cocktail, classic, gin, rum, soft")
+                c.privmsg(CHANNEL, "Drink categories: random, whisky, sake, beer, wine, cocktail, classic, gin, rum, soft")
 
             elif msg == "!drink":
                 c.privmsg(CHANNEL, topic_drink())
