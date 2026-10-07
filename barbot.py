@@ -419,6 +419,23 @@ def format_reminder_time(seconds):
     return " ".join(parts)
 
 
+def parse_reminder_duration(text):
+    match = re.fullmatch(
+        r"(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?",
+        text,
+        re.IGNORECASE,
+    )
+
+    if not match or not any(match.groups()):
+        return None
+
+    days = int(match.group(1) or 0)
+    hours = int(match.group(2) or 0)
+    minutes = int(match.group(3) or 0)
+
+    return days * 86400 + hours * 3600 + minutes * 60
+
+
 def reminder_emoji(message):
     text = message.lower()
 
@@ -1274,24 +1291,20 @@ class BarBot(irc.bot.SingleServerIRCBot):
                     c.privmsg(CHANNEL, f"{nick}: reminder {number} deleted")
 
             elif lowered.startswith("!remind "):
-                match = re.fullmatch(r"!remind\s+(\d+)([mhd])\s+(.+)", msg, re.IGNORECASE)
+                match = re.fullmatch(r"!remind\s+(\S+)\s+(.+)", msg, re.IGNORECASE)
 
                 if not match:
                     c.privmsg(CHANNEL, f"{nick}: usage: !remind 5m coffee")
                 else:
-                    amount = int(match.group(1))
-                    unit = match.group(2).lower()
-                    message = match.group(3).strip()
+                    duration_text = match.group(1)
+                    message = match.group(2).strip()
 
-                    multipliers = {
-                        "m": 60,
-                        "h": 60 * 60,
-                        "d": 24 * 60 * 60,
-                    }
-                    delay = amount * multipliers[unit]
+                    delay = parse_reminder_duration(duration_text)
 
-                    if amount < 1:
-                        c.privmsg(CHANNEL, f"{nick}: reminder time must be at least 1{unit}")
+                    if delay is None:
+                        c.privmsg(CHANNEL, f"{nick}: usage: !remind 5m coffee")
+                    elif delay < 60:
+                        c.privmsg(CHANNEL, f"{nick}: reminder time must be at least 1m")
                     elif delay > 365 * 24 * 60 * 60:
                         c.privmsg(CHANNEL, f"{nick}: reminder time must be 365 days or less")
                     else:
@@ -1304,9 +1317,10 @@ class BarBot(irc.bot.SingleServerIRCBot):
 
                         emoji = reminder_emoji(message)
                         suffix = f" {emoji}" if emoji else ""
+                        duration_display = format_reminder_time(delay)
                         c.privmsg(
                             CHANNEL,
-                            f"{nick}: ⏰ reminder set for {amount}{unit}{suffix}"
+                            f"{nick}: ⏰ reminder set for {duration_display}{suffix}"
                         )
 
             elif lowered == "!w" or lowered.startswith("!w "):
