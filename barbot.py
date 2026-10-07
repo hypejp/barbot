@@ -105,6 +105,55 @@ NIHONSHU = [
     "香露 🍶 - 熊本",
 ]
 
+WHISKY = [
+    "Lagavulin 16 🥃 - Islay",
+    "Ardbeg 10 🥃 - Islay",
+    "Port Charlotte 10 🥃 - Islay",
+    "Laphroaig 10 🥃 - Islay",
+    "Caol Ila 12 🥃 - Islay",
+    "Bowmore 12 🥃 - Islay",
+    "Bunnahabhain 12 🥃 - Islay",
+    "Kilchoman Machir Bay 🥃 - Islay",
+    "Bruichladdich The Classic Laddie 🥃 - Islay",
+    "Finlaggan 🥃 - Islay",
+    "Ileach 🥃 - Islay",
+    "Scarabus 🥃 - Islay",
+    "Talisker 10 🥃 - Isle of Skye",
+    "Oban 14 🥃 - Highlands",
+    "The Glenlivet 12 🥃 - Speyside",
+]
+
+BEER = [
+    "Hoegaarden White 🍺 - Belgium",
+    "Duvel 🍺 - Belgium",
+    "Chimay Blue 🍺 - Belgium",
+    "Chimay Red 🍺 - Belgium",
+    "Orval 🍺 - Belgium",
+    "Westmalle Tripel 🍺 - Belgium",
+    "Rochefort 10 🍺 - Belgium",
+    "Delirium Tremens 🍺 - Belgium",
+    "Leffe Blonde 🍺 - Belgium",
+    "Lindemans Kriek 🍺 - Belgium",
+    "INEDIT Damm 🍺 - Spain",
+    "Sapporo Black Label 🍺 - Japan",
+    "Sapporo Lager \"Akaboshi\" 🍺 - Japan",
+    "Sapporo Classic 🍺 - Hokkaido",
+    "Asahi Maruefu 🍺 - Japan",
+]
+
+WINE = [
+    "Chablis 🍷 - Burgundy",
+    "Sancerre 🍷 - Loire",
+    "Bordeaux Rouge 🍷 - Bordeaux",
+    "Bourgogne Rouge 🍷 - Burgundy",
+    "Côtes du Rhône 🍷 - Rhône",
+    "Barolo 🍷 - Piedmont",
+    "Chianti Classico 🍷 - Tuscany",
+    "Rioja Reserva 🍷 - Spain",
+    "Champagne 🥂 - Champagne",
+    "Cava 🥂 - Spain",
+]
+
 IDLE_LINES = [
     "琥珀色の灯りがカウンターに落ちている",
     "氷がゆっくり形を変えていく",
@@ -588,6 +637,15 @@ def category_drinks(category):
 
     if category in ("sake", "nihonshu"):
         return NIHONSHU
+
+    if category in ("whisky", "whiskey"):
+        return WHISKY
+
+    if category == "beer":
+        return BEER
+
+    if category == "wine":
+        return WINE
 
     keys = DRINK_CATEGORIES.get(category)
     if not keys:
