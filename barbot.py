@@ -7,6 +7,7 @@ import random
 import time
 import re
 import json
+import os
 import threading
 from datetime import datetime
 import pytz
@@ -948,6 +949,35 @@ def weather_description(code):
     return weather_codes.get(code, "Weather unknown")
 
 
+def movie_lookup(title):
+    api_key = os.environ.get("OMDB_API_KEY")
+    if not api_key:
+        print("OMDb API key is not set", flush=True)
+        return None
+
+    try:
+        r = requests.get(
+            "https://www.omdbapi.com/",
+            params={
+                "apikey": api_key,
+                "t": title,
+                "type": "movie",
+            },
+            timeout=10,
+        )
+        r.raise_for_status()
+        data = r.json()
+
+        if data.get("Response") != "True":
+            return None
+
+        return data
+
+    except Exception as e:
+        print(f"OMDb request failed: {e}", flush=True)
+        return None
+
+
 def get_weather(place):
     try:
         r = requests.get(
@@ -1302,7 +1332,7 @@ class BarBot(irc.bot.SingleServerIRCBot):
             if msg == "!help":
                 c.privmsg(
                     CHANNEL,
-                    "!ping !menu !drink [category] !citypop !remind [5m message/list/del N] !loc [City, Country] !w [location] !wt [location] !history !who !topic !quote [list/add/del] !rank(quote) !seen nick !autoquote [on/off/status] !uptime !about !version !mood"
+                    "!ping !menu !drink [category] !movie [title] !citypop !remind [5m message/list/del N] !loc [City, Country] !w [location] !wt [location] !history !who !topic !quote [list/add/del] !rank(quote) !seen nick !autoquote [on/off/status] !uptime !about !version !mood"
                 )
 
             elif lowered == "!remind":
@@ -1554,6 +1584,36 @@ class BarBot(irc.bot.SingleServerIRCBot):
                         c.privmsg(CHANNEL, alias)
                     else:
                         c.privmsg(CHANNEL, f"No drinks found for '{category}'. Try !menu")
+
+            elif msg == "!movie":
+                c.privmsg(CHANNEL, "Usage: !movie Blade Runner")
+
+            elif msg.startswith("!movie "):
+                title = msg.split(" ", 1)[1].strip()
+                movie = movie_lookup(title)
+
+                if not movie:
+                    c.privmsg(CHANNEL, f"Movie not found: {title}")
+                else:
+                    movie_title = movie.get("Title", title)
+                    year = movie.get("Year", "N/A")
+                    rating = movie.get("imdbRating", "N/A")
+                    genre = movie.get("Genre", "N/A")
+                    director = movie.get("Director", "N/A")
+                    imdb_id = movie.get("imdbID")
+
+                    first = f"{movie_title} ({year})"
+                    if rating != "N/A":
+                        first += f" ★{rating}"
+                    if genre != "N/A":
+                        first += f" | {genre}"
+                    if director != "N/A":
+                        first += f" | {director}"
+
+                    c.privmsg(CHANNEL, first)
+
+                    if imdb_id:
+                        c.privmsg(CHANNEL, f"https://www.imdb.com/title/{imdb_id}/")
 
             elif msg == "!citypop":
                 if CITYPOP_TRACKS:
