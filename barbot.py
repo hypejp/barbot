@@ -1047,6 +1047,10 @@ def movie_lookup(title):
         if data.get("Response") != "True":
             return None
 
+        japanese_title = tmdb_result.get("title") or tmdb_result.get("name")
+        if japanese_title:
+            data["JapaneseTitle"] = japanese_title
+
         return data
 
     except Exception as e:
@@ -1672,6 +1676,10 @@ class BarBot(irc.bot.SingleServerIRCBot):
                     c.privmsg(CHANNEL, f"Movie not found: {title}")
                 else:
                     movie_title = movie.get("Title", title)
+                    japanese_title = movie.get("JapaneseTitle")
+                    if japanese_title and japanese_title != movie_title:
+                        movie_title = f"{japanese_title} / {movie_title}"
+
                     year = movie.get("Year", "N/A")
                     rating = movie.get("imdbRating", "N/A")
                     genre = movie.get("Genre", "N/A")
