@@ -961,7 +961,6 @@ def movie_lookup(title):
             params={
                 "apikey": api_key,
                 "t": title,
-                "type": "movie",
             },
             timeout=10,
         )
