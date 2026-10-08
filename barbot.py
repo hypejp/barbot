@@ -949,6 +949,61 @@ def weather_description(code):
     return weather_codes.get(code, "Weather unknown")
 
 
+def tmdb_search(title):
+    api_key = os.environ.get("TMDB_API_KEY")
+    if not api_key:
+        print("TMDB API key is not set", flush=True)
+        return None
+
+    try:
+        r = requests.get(
+            "https://api.themoviedb.org/3/search/multi",
+            params={
+                "api_key": api_key,
+                "query": title,
+                "language": "ja-JP",
+            },
+            timeout=10,
+        )
+        r.raise_for_status()
+        results = r.json().get("results", [])
+
+        for result in results:
+            if result.get("media_type") in ("movie", "tv"):
+                return result
+
+        return None
+
+    except Exception as e:
+        print(f"TMDB request failed: {e}", flush=True)
+        return None
+
+
+def tmdb_imdb_id(result):
+    api_key = os.environ.get("TMDB_API_KEY")
+    if not api_key:
+        return None
+
+    media_type = result.get("media_type")
+    tmdb_id = result.get("id")
+
+    if media_type not in ("movie", "tv") or not tmdb_id:
+        return None
+
+    try:
+        r = requests.get(
+            f"https://api.themoviedb.org/3/{media_type}/{tmdb_id}/external_ids",
+            params={"api_key": api_key},
+            timeout=10,
+        )
+        r.raise_for_status()
+        return r.json().get("imdb_id")
+
+    except Exception as e:
+        print(f"TMDB external ID request failed: {e}", flush=True)
+        return None
+
+
 def movie_lookup(title):
     api_key = os.environ.get("OMDB_API_KEY")
     if not api_key:
@@ -961,6 +1016,28 @@ def movie_lookup(title):
             params={
                 "apikey": api_key,
                 "t": title,
+            },
+            timeout=10,
+        )
+        r.raise_for_status()
+        data = r.json()
+
+        if data.get("Response") == "True":
+            return data
+
+        tmdb_result = tmdb_search(title)
+        if not tmdb_result:
+            return None
+
+        imdb_id = tmdb_imdb_id(tmdb_result)
+        if not imdb_id:
+            return None
+
+        r = requests.get(
+            "https://www.omdbapi.com/",
+            params={
+                "apikey": api_key,
+                "i": imdb_id,
             },
             timeout=10,
         )
