@@ -8,6 +8,7 @@ import time
 import re
 import json
 import os
+import html
 import threading
 from datetime import datetime
 import pytz
@@ -949,7 +950,7 @@ def weather_description(code):
     return weather_codes.get(code, "Weather unknown")
 
 
-def tmdb_search(title):
+def tmdb_search(title, year=None):
     api_key = os.environ.get("TMDB_API_KEY")
     if not api_key:
         print("TMDB API key is not set", flush=True)
@@ -968,11 +969,19 @@ def tmdb_search(title):
         r.raise_for_status()
         results = r.json().get("results", [])
 
-        for result in results:
-            if result.get("media_type") in ("movie", "tv"):
-                return result
+        candidates = [
+            result for result in results
+            if result.get("media_type") in ("movie", "tv")
+        ]
 
-        return None
+        if year:
+            for result in candidates:
+                date = result.get("release_date") or result.get("first_air_date") or ""
+                if date.startswith(str(year)):
+                    return result
+            return None
+
+        return candidates[0] if candidates else None
 
     except Exception as e:
         print(f"TMDB request failed: {e}", flush=True)
@@ -1005,6 +1014,12 @@ def tmdb_imdb_id(result):
 
 
 def movie_lookup(title):
+    year = None
+    match = re.fullmatch(r"(.+?)\s+(\d{4})", title)
+    if match:
+        title = match.group(1).strip()
+        year = int(match.group(2))
+
     api_key = os.environ.get("OMDB_API_KEY")
     if not api_key:
         print("OMDb API key is not set", flush=True)
@@ -1022,10 +1037,10 @@ def movie_lookup(title):
         r.raise_for_status()
         data = r.json()
 
-        if data.get("Response") == "True":
+        if data.get("Response") == "True" and year is None:
             return data
 
-        tmdb_result = tmdb_search(title)
+        tmdb_result = tmdb_search(title, year)
         if not tmdb_result:
             return None
 
@@ -1683,7 +1698,7 @@ class BarBot(irc.bot.SingleServerIRCBot):
                     year = movie.get("Year", "N/A")
                     rating = movie.get("imdbRating", "N/A")
                     genre = movie.get("Genre", "N/A")
-                    director = movie.get("Director", "N/A")
+                    director = html.unescape(movie.get("Director", "N/A"))
                     imdb_id = movie.get("imdbID")
 
                     first = f"{movie_title} ({year})"
