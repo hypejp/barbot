@@ -133,3 +133,43 @@ def lookup(term):
                 }
 
     return None
+
+
+def lookup_sense(term, sense_no):
+    """日本語の見出し語から指定番号の語義を取得する。"""
+    term = term.strip()
+    if not term or term.isascii() or sense_no < 1:
+        return None
+
+    with sqlite3.connect(str(DATABASE)) as db:
+        row = db.execute("""
+            SELECT e.id, e.word, e.reading
+            FROM japanese AS j
+            JOIN entries AS e ON e.id = j.entry_id
+            WHERE j.term = ?
+            ORDER BY
+                CASE WHEN e.word = ? THEN 1 ELSE 0 END DESC,
+                e.priority DESC
+            LIMIT 1
+        """, (term, term)).fetchone()
+
+        if not row:
+            return None
+
+        entry_id, word, reading = row
+        glosses = db.execute("""
+            SELECT gloss
+            FROM senses
+            WHERE entry_id = ? AND sense_no = ?
+            ORDER BY gloss_no
+        """, (entry_id, sense_no)).fetchall()
+
+        if not glosses:
+            return None
+
+        return {
+            "language": "ja",
+            "word": f"{word}({reading})",
+            "sense_no": sense_no,
+            "meaning": "; ".join(gloss for (gloss,) in glosses),
+        }

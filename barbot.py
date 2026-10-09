@@ -17,7 +17,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "dictionary"))
-from search import lookup as dictionary_lookup
+from search import lookup as dictionary_lookup, lookup_sense as dictionary_lookup_sense
 from replies import make_dictionary_replies, make_not_found_reply
 from urllib.parse import quote_plus
 import requests
@@ -1326,14 +1326,39 @@ class BarBot(irc.bot.SingleServerIRCBot):
                 if not term:
                     c.privmsg(CHANNEL, f"{nick}: usage: !dic word")
                 else:
-                    result = dictionary_lookup(term)
+                    parts = term.rsplit(maxsplit=1)
+                    numbered = (
+                        len(parts) == 2
+                        and not parts[0].isascii()
+                        and parts[1].isascii()
+                        and parts[1].isdigit()
+                    )
 
-                    if result:
-                        for reply in make_dictionary_replies(result):
-                            c.privmsg(CHANNEL, reply)
+                    if numbered:
+                        word, number = parts
+                        sense_no = int(number)
+                        result = dictionary_lookup_sense(word, sense_no)
+
+                        if result:
+                            c.privmsg(
+                                CHANNEL,
+                                f"{result['word']}の{sense_no}番目の意味は"
+                                f"『{result['meaning']}』だよ。"
+                            )
+                        else:
+                            c.privmsg(
+                                CHANNEL,
+                                f"{word}の{sense_no}番目の意味は見つからなかったよ。"
+                            )
                     else:
-                        language = "en" if term.isascii() else "ja"
-                        c.privmsg(CHANNEL, make_not_found_reply(language))
+                        result = dictionary_lookup(term)
+
+                        if result:
+                            for reply in make_dictionary_replies(result):
+                                c.privmsg(CHANNEL, reply)
+                        else:
+                            language = "en" if term.isascii() else "ja"
+                            c.privmsg(CHANNEL, make_not_found_reply(language))
 
             elif lowered == "!remind":
                 c.privmsg(CHANNEL, f"{nick}: usage: !remind 5m coffee")
