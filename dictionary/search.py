@@ -3,6 +3,7 @@ import sys
 
 from overrides import ENGLISH_OVERRIDES
 from formatting import split_gloss
+from freedict import lookup as freedict_lookup
 from pathlib import Path
 
 DATABASE = Path(__file__).resolve().parent / "jmdict.sqlite"
@@ -79,35 +80,16 @@ def lookup(term):
 
     with sqlite3.connect(str(DATABASE)) as db:
         if term.isascii():
-            override = ENGLISH_OVERRIDES.get(term.lower())
-            if override:
+            lines = freedict_lookup(term)
+            if lines:
+                meanings = [
+                    line.removeprefix(f"{term} → ")
+                    for line in lines
+                ]
                 return {
                     "language": "en",
                     "word": term,
-                    "meaning": (
-                        override.split("【")[0]
-                        if "【" in override
-                        and override.split("【")[0] == override.split("【")[1].rstrip("】")
-                        else override.replace("【", "(").replace("】", ")")
-                    ),
-                }
-
-            row = db.execute("""
-                SELECT e.word, e.reading
-                FROM english AS x
-                JOIN entries AS e ON e.id = x.entry_id
-                WHERE x.term = ?
-                   OR x.term LIKE ?
-                ORDER BY e.priority DESC
-                LIMIT 1
-            """, (term.lower(), term.lower() + " (%")).fetchone()
-
-            if row:
-                word, reading = row
-                return {
-                    "language": "en",
-                    "word": term,
-                    "meaning": f"{word}({reading})",
+                    "meaning": " / ".join(meanings),
                 }
 
         else:
@@ -138,8 +120,24 @@ def lookup(term):
 def lookup_sense(term, sense_no):
     """日本語の見出し語から指定番号の語義を取得する。"""
     term = term.strip()
-    if not term or term.isascii() or sense_no < 1:
+    if not term or sense_no < 1:
         return None
+
+    if term.isascii():
+        lines = freedict_lookup(term, sense_no)
+        if not lines:
+            return None
+
+        meanings = [
+            line.removeprefix(f"{term} → ")
+            for line in lines
+        ]
+        return {
+            "language": "en",
+            "word": term,
+            "sense_no": sense_no,
+            "meaning": " / ".join(meanings),
+        }
 
     with sqlite3.connect(str(DATABASE)) as db:
         row = db.execute("""

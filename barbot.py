@@ -18,7 +18,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "dictionary"))
 from search import lookup as dictionary_lookup, lookup_sense as dictionary_lookup_sense
-from replies import make_dictionary_replies, make_not_found_reply
+from replies import make_dictionary_replies, make_not_found_reply, make_sense_reply
 from urllib.parse import quote_plus
 import requests
 from bs4 import BeautifulSoup
@@ -1329,7 +1329,6 @@ class BarBot(irc.bot.SingleServerIRCBot):
                     parts = term.rsplit(maxsplit=1)
                     numbered = (
                         len(parts) == 2
-                        and not parts[0].isascii()
                         and parts[1].isascii()
                         and parts[1].isdigit()
                     )
@@ -1340,11 +1339,7 @@ class BarBot(irc.bot.SingleServerIRCBot):
                         result = dictionary_lookup_sense(word, sense_no)
 
                         if result:
-                            c.privmsg(
-                                CHANNEL,
-                                f"{result['word']}の{sense_no}番目の意味は"
-                                f"『{result['meaning']}』だよ。"
-                            )
+                            c.privmsg(CHANNEL, make_sense_reply(result))
                         else:
                             c.privmsg(
                                 CHANNEL,

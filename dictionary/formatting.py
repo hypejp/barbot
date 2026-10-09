@@ -1,6 +1,22 @@
 """JMdictの訳語を表示用に整える。元データは変更しない。"""
 
 CONFIRMED_NOTES = {
+    "gyoza": (
+        "gyoza",
+        "Chinese-origin dumplings, commonly pan-fried in Japan",
+    ),
+    "shumai": (
+        "shumai",
+        "Chinese-style steamed dumplings",
+    ),
+    "takoyaki": (
+        "takoyaki",
+        "Japanese snack made of batter balls filled with octopus",
+    ),
+    "okonomiyaki": (
+        "okonomiyaki",
+        "Japanese savory pancake with cabbage and other ingredients",
+    ),
     "cat (esp. the domestic cat, Felis catus)": (
         "cat",
         "esp. the domestic cat, Felis catus",

@@ -1,19 +1,19 @@
 import random
 
 JAPANESE_TEMPLATES = [
-    "{word}は英語で『{meaning}』って意味だよ。",
-    "{word}なら英語で『{meaning}』って訳せるよ。",
+    "{word}は日本語で『{meaning}』って意味だよ。",
+    "{word}なら『{meaning}』って訳せるよ。",
     "{word}は『{meaning}』のことだね。",
-    "{word}? 英語では『{meaning}』だね。",
-    "{word}は英語で『{meaning}』だよ。🍺",
+    "{word}? 日本語では『{meaning}』だね。",
+    "{word}は日本語で『{meaning}』だよ。🍺",
 ]
 
 ENGLISH_TEMPLATES = [
-    '"{word}" means "{meaning}" in Japanese.',
+    '"{word}" means "{meaning}" in English.',
     'You can translate "{word}" as "{meaning}".',
-    '"{word}"? That would be "{meaning}" in Japanese.',
-    'In Japanese, "{word}" can mean "{meaning}".',
-    '"{word}" is "{meaning}" in Japanese. 🍺',
+    '"{word}"? That would be "{meaning}" in English.',
+    'In English, "{word}" can mean "{meaning}".',
+    '"{word}" is "{meaning}" in English. 🍺',
 ]
 
 
@@ -23,9 +23,9 @@ _last_template = {}
 def make_reply(word, meaning, language):
     """直前と異なるセリフを選んで返す。"""
     if language == "ja":
-        templates = JAPANESE_TEMPLATES
-    elif language == "en":
         templates = ENGLISH_TEMPLATES
+    elif language == "en":
+        templates = JAPANESE_TEMPLATES
     else:
         raise ValueError(f"Unsupported language: {language}")
 
@@ -87,6 +87,55 @@ def make_dictionary_replies(result):
 
     note = result.get("note")
     if note:
-        messages.append(f"補足: {note}")
+        label = "Note" if result["language"] == "ja" else "補足"
+        messages.append(f"{label}: {note}")
 
     return messages
+
+
+SENSE_JAPANESE_TEMPLATES = [
+    "{word}の{number}番目の意味は『{meaning}』だよ。",
+    "{word}の{number}番目なら『{meaning}』だね。",
+    "{word}の{number}番目は『{meaning}』って意味だよ。",
+    "{word}? {number}番目の意味は『{meaning}』だね。",
+    "{word}の{number}番目は『{meaning}』だよ。🍺",
+]
+
+SENSE_ENGLISH_TEMPLATES = [
+    'The {ordinal} meaning of "{word}" is "{meaning}".',
+    'For "{word}", meaning number {number} is "{meaning}".',
+    'Meaning {number} of "{word}" is "{meaning}".',
+    'The {ordinal} definition of "{word}" is "{meaning}".',
+    '"{word}" has "{meaning}" as its {ordinal} meaning. 🍺',
+]
+
+
+def make_sense_reply(result):
+    """語義番号指定の返答を翻訳先の言語で生成する。"""
+    language = result["language"]
+    number = result["sense_no"]
+
+    if language == "en":
+        templates = SENSE_JAPANESE_TEMPLATES
+    elif language == "ja":
+        templates = SENSE_ENGLISH_TEMPLATES
+    else:
+        raise ValueError(f"Unsupported language: {language}")
+
+    key = f"sense_{language}"
+    previous = _last_template.get(key)
+    candidates = [t for t in templates if t != previous]
+    template = random.choice(candidates)
+    _last_template[key] = template
+
+    suffix = (
+        "th" if number % 100 in (11, 12, 13)
+        else {1: "st", 2: "nd", 3: "rd"}.get(number % 10, "th")
+    )
+
+    return template.format(
+        word=result["word"],
+        meaning=result["meaning"],
+        number=number,
+        ordinal=f"{number}{suffix}",
+    )

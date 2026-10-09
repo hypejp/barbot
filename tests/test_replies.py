@@ -39,7 +39,7 @@ class TestDictionaryReplies(unittest.TestCase):
         self.assertEqual(len(messages), 2)
         self.assertEqual(
             messages[1],
-            "補足: esp. the domestic cat, Felis catus",
+            "Note: esp. the domestic cat, Felis catus",
         )
 
     def test_reply_without_note(self):
@@ -62,3 +62,44 @@ class TestDictionaryReplies(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestSenseReplies(unittest.TestCase):
+    def test_english_to_japanese_sense(self):
+        from replies import make_sense_reply
+        result = {
+            "language": "en",
+            "word": "think",
+            "meaning": "[動詞] 思う、考える",
+            "sense_no": 3,
+        }
+        reply = make_sense_reply(result)
+        self.assertIn("think", reply)
+        self.assertIn("思う、考える", reply)
+        self.assertIn("3番目", reply)
+
+    def test_japanese_to_english_sense(self):
+        from replies import make_sense_reply
+        result = {
+            "language": "ja",
+            "word": "猫(ねこ)",
+            "meaning": "cat",
+            "sense_no": 11,
+        }
+        reply = make_sense_reply(result)
+        self.assertIn("猫(ねこ)", reply)
+        self.assertIn("cat", reply)
+        self.assertTrue("11th" in reply or "number 11" in reply)
+
+    def test_no_immediate_sense_repetition(self):
+        from replies import make_sense_reply
+        result = {
+            "language": "en",
+            "word": "think",
+            "meaning": "考える",
+            "sense_no": 1,
+        }
+        previous = make_sense_reply(result)
+        for _ in range(20):
+            current = make_sense_reply(result)
+            self.assertNotEqual(previous, current)
+            previous = current

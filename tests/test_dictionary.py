@@ -20,7 +20,7 @@ class TestDictionary(unittest.TestCase):
     def test_english_to_japanese(self):
         result = lookup("music")
         self.assertIsNotNone(result)
-        self.assertEqual(result["meaning"], "音楽(おんがく)")
+        self.assertEqual(result["meaning"], "[名詞] 音楽、楽譜、ミュージック")
 
     def test_sense_number(self):
         result = lookup_sense("猫", 6)
@@ -31,12 +31,37 @@ class TestDictionary(unittest.TestCase):
             "bottom (submissive partner of a homosexual relationship)",
         )
 
+    def test_english_sense_number(self):
+        result = lookup_sense("think", 3)
+        self.assertIsNotNone(result)
+        self.assertEqual(result["language"], "en")
+        self.assertEqual(result["sense_no"], 3)
+        self.assertIn("思う", result["meaning"])
+        self.assertIsNone(lookup_sense("think", 4))
+
     def test_invalid_sense_number(self):
         self.assertIsNone(lookup_sense("猫", 99))
 
     def test_unknown_word(self):
         self.assertIsNone(lookup("xyzzyfoobar123"))
 
+
+
+    def test_food_explanations(self):
+        cases = {
+            "餃子": ("gyoza", "Chinese-origin dumplings"),
+            "ぎょうざ": ("gyoza", "Chinese-origin dumplings"),
+            "焼売": ("shumai", "Chinese-style steamed dumplings"),
+            "しゅうまい": ("shumai", "Chinese-style steamed dumplings"),
+            "たこ焼き": ("takoyaki", "octopus"),
+            "お好み焼き": ("okonomiyaki", "savory pancake"),
+        }
+        for word, (meaning, note) in cases.items():
+            with self.subTest(word=word):
+                result = lookup(word)
+                self.assertIsNotNone(result)
+                self.assertEqual(result["meaning"], meaning)
+                self.assertIn(note, result["note"])
 
 if __name__ == "__main__":
     unittest.main()

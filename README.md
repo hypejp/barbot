@@ -24,3 +24,19 @@ Its goal is not to dominate conversations, but to help create the atmosphere of 
 hype
 
 GitHub: https://github.com/hypejp/barbot
+
+## Dictionary Data
+
+barbot uses dictionary data from the FreeDict project for
+English-to-Japanese translations.
+
+- Project: FreeDict
+- Website: https://freedict.org/
+- Dictionary: English-Japanese (`eng-jpn`)
+- Storage: Converted to SQLite for use by barbot
+- License: Exact license and attribution details are being verified
+
+The converted SQLite database is not included in this Git repository.
+
+The dictionary data and the barbot source code are separate works.
+The dictionary's original copyright and license terms remain applicable.
