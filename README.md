@@ -43,9 +43,17 @@ barbot uses English-to-Japanese dictionary data from the FreeDict project.
 ### Modifications and Distribution
 
 The dictionary data has been converted to SQLite format for use by barbot.
-The converted database contains 38,388 entries; the referenced FreeDict
-release lists 38,419 headwords. The exact source release used for the
-conversion has not yet been independently verified.
+The converted database is based on FreeDict eng-jpn release 2025.11.23.
+
+The original TEI source was verified against the official FreeDict
+2025.11.23 source archive using SHA-256 checksums.
+
+The converted SQLite database contains 38,388 entries and 67,820
+Japanese translations. All 67,820 translations were verified against
+the official source release after whitespace normalization.
+
+The official source contains 38,419 entries and 67,822 translations.
+Entries without usable translations were excluded during conversion.
 
 The converted SQLite database is not included in this Git repository.
 
