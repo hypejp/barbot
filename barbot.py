@@ -14,6 +14,11 @@ from datetime import datetime
 import pytz
 from collections import deque
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "dictionary"))
+from search import lookup as dictionary_lookup
+from replies import make_dictionary_replies, make_not_found_reply
 from urllib.parse import quote_plus
 import requests
 from bs4 import BeautifulSoup
@@ -1309,8 +1314,26 @@ class BarBot(irc.bot.SingleServerIRCBot):
             if msg == "!help":
                 c.privmsg(
                     CHANNEL,
-                    "!ping !menu !drink [category] !movie [title] !citypop !remind [5m message/list/del N] !loc [City, Country] !w [location] !wt [location] !history !who !topic !quote [list/add/del] !rank(quote) !seen nick !autoquote [on/off/status] !uptime !about !version !mood"
+                    "!ping !dic [word] !menu !drink [category] !movie [title] !citypop !remind [5m message/list/del N] !loc [City, Country] !w [location] !wt [location] !history !who !topic !quote [list/add/del] !rank(quote) !seen nick !autoquote [on/off/status] !uptime !about !version !mood"
                 )
+
+            elif lowered == "!dic":
+                c.privmsg(CHANNEL, f"{nick}: usage: !dic word")
+
+            elif lowered.startswith("!dic "):
+                term = msg[5:].strip()
+
+                if not term:
+                    c.privmsg(CHANNEL, f"{nick}: usage: !dic word")
+                else:
+                    result = dictionary_lookup(term)
+
+                    if result:
+                        for reply in make_dictionary_replies(result):
+                            c.privmsg(CHANNEL, reply)
+                    else:
+                        language = "en" if term.isascii() else "ja"
+                        c.privmsg(CHANNEL, make_not_found_reply(language))
 
             elif lowered == "!remind":
                 c.privmsg(CHANNEL, f"{nick}: usage: !remind 5m coffee")

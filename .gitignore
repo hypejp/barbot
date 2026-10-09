@@ -1,0 +1,13 @@
+# Local dictionary data
+dictionary/*.gz
+dictionary/*.db
+dictionary/*.sqlite
+dictionary/*.sqlite.*
+
+# Backups
+*.bak
+*.bak-*
+
+# Python cache
+__pycache__/
+*.pyc
