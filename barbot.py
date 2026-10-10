@@ -715,6 +715,13 @@ def fetch_title(url):
                 return title.strip()[:120]
 
         r = requests.get(url, timeout=3)
+        if r.status_code == 406:
+            print(f"URL title HTTP 406; retrying: {url}", flush=True)
+            r = requests.get(
+                url,
+                headers={"User-Agent": "curl/7.88.1"},
+                timeout=5,
+            )
         r.raise_for_status()
         r.encoding = r.apparent_encoding
         soup = BeautifulSoup(r.text, "html.parser")
@@ -722,7 +729,8 @@ def fetch_title(url):
             title = soup.title.string.strip()
             if title and title != "- YouTube":
                 return title[:100]
-    except Exception:
+    except Exception as exc:
+        print(f"URL title error: {url}: {type(exc).__name__}: {exc}", flush=True)
         return None
 
 def fetch_async(c, url):
