@@ -15,3 +15,9 @@ SLANG_NOTES = {
         "verb": ["期待をあおる", "盛り上げる"],
     },
 }
+
+
+# 代表的な日本語訳がある場合に、表示を省略する訳語。
+TRANSLATION_EXCLUSIONS = {
+    "music": {"ミュージック"},
+}

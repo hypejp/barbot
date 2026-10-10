@@ -104,11 +104,35 @@ def make_not_found_reply(language):
 
 
 
+def unique_translations(translations):
+    """表記違いのカタカナ語をまとめ、代表訳を残す。"""
+    import re
+
+    result = []
+    seen = set()
+
+    for translation in translations:
+        key = translation
+
+        # カタカナ語の末尾の長音の有無だけを同一視する。
+        if re.fullmatch(r"[ァ-ヶー]+", translation):
+            key = translation.rstrip("ー")
+
+        if key not in seen:
+            seen.add(key)
+            result.append(translation)
+
+    return result
+
+
 def make_structured_japanese_reply(word, entries):
     """FreeDictの品詞・語義を使って自然な日本語の説明を作る。"""
     from freedict import POS_LABELS, POS_PRIORITY, prioritize_senses
+    from overrides import TRANSLATION_EXCLUSIONS
 
+    exclusions = TRANSLATION_EXCLUSIONS.get(word.lower(), set())
     groups = []
+    extra_meaning = None
     for entry in entries:
         pos = entry["pos"]
         senses = prioritize_senses(entry)
@@ -117,7 +141,21 @@ def make_structured_japanese_reply(word, entries):
 
         # 原則として第1語義の代表訳を優先する。
         first_sense = next(iter(senses.values()), [])
-        translations = list(first_sense[:2])
+        translations = [
+            t for t in unique_translations(first_sense)
+            if t not in exclusions
+        ][:2]
+
+        # 除外設定がある単語では、別の語義も1つだけ確認する。
+        if exclusions and extra_meaning is None:
+            for other_sense in list(senses.values())[1:]:
+                candidates = [
+                    t for t in unique_translations(other_sense)
+                    if t not in exclusions and t not in translations
+                ]
+                if candidates:
+                    extra_meaning = candidates[0]
+                    break
 
         # 形容詞は別の語義が重要な意味を持つことがある。
         if pos == "adj" and len(senses) > 1:
@@ -160,7 +198,10 @@ def make_structured_japanese_reply(word, entries):
     groups = unique_groups
 
     if len(groups) == 1:
-        return f"{word}は{groups[0][2]}という意味だよ。🍺"
+        reply = f"{word}は{groups[0][2]}という意味だよ。"
+        if extra_meaning and extra_meaning not in seen:
+            reply += f"『{extra_meaning}』を指すこともあるよ。"
+        return reply + "🍺"
 
     descriptions = [
         f"{label}では{quoted}"

@@ -28,5 +28,54 @@ class TestSlangNotes(unittest.TestCase):
         self.assertEqual(len(messages), 1)
 
 
+
+class TestTranslationDeduplication(unittest.TestCase):
+
+    def test_katakana_long_vowel_variants(self):
+        from replies import unique_translations
+
+        translations = [
+            "コンピュータ",
+            "コンピューター",
+            "電子計算機",
+        ]
+        self.assertEqual(
+            unique_translations(translations),
+            ["コンピュータ", "電子計算機"],
+        )
+
+    def test_distinct_translations_are_preserved(self):
+        from replies import unique_translations
+
+        self.assertEqual(
+            unique_translations(["音楽", "ミュージック"]),
+            ["音楽", "ミュージック"],
+        )
+
+    def test_computer_reply(self):
+        messages = make_dictionary_replies(lookup("computer"))
+        self.assertEqual(len(messages), 1)
+        self.assertIn("コンピュータ", messages[0])
+        self.assertIn("電子計算機", messages[0])
+        self.assertNotIn("コンピューター", messages[0])
+
+
+
+class TestMusicTranslation(unittest.TestCase):
+
+    def test_music_reply(self):
+        messages = make_dictionary_replies(lookup("music"))
+
+        self.assertEqual(len(messages), 1)
+        self.assertIn("『音楽』", messages[0])
+        self.assertIn("『楽譜』", messages[0])
+        self.assertNotIn("『ミュージック』", messages[0])
+
+    def test_music_translation_exclusion(self):
+        from overrides import TRANSLATION_EXCLUSIONS
+
+        self.assertIn("ミュージック", TRANSLATION_EXCLUSIONS["music"])
+
+
 if __name__ == "__main__":
     unittest.main()
