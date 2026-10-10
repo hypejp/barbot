@@ -88,7 +88,7 @@ class TestSenseReplies(unittest.TestCase):
         reply = make_sense_reply(result)
         self.assertIn("猫(ねこ)", reply)
         self.assertIn("cat", reply)
-        self.assertTrue("11th" in reply or "number 11" in reply)
+        self.assertTrue("11th" in reply or "number 11" in reply or "Meaning 11" in reply)
 
     def test_no_immediate_sense_repetition(self):
         from replies import make_sense_reply

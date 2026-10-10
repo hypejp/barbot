@@ -4,6 +4,7 @@ import sys
 from overrides import ENGLISH_OVERRIDES
 from formatting import split_gloss
 from freedict import lookup as freedict_lookup
+from freedict import fetch_senses as freedict_fetch_senses
 from pathlib import Path
 
 DATABASE = Path(__file__).resolve().parent / "jmdict.sqlite"
@@ -90,6 +91,25 @@ def lookup(term):
                     "language": "en",
                     "word": term,
                     "meaning": " / ".join(meanings),
+                    "entries": freedict_fetch_senses(term),
+                }
+
+            # FreeDictにない英単語はJMdictから完全一致で補完する。
+            rows = db.execute("""
+                SELECT DISTINCT e.word
+                FROM english AS x
+                JOIN entries AS e ON e.id = x.entry_id
+                WHERE x.term = ? COLLATE NOCASE
+                ORDER BY e.priority DESC
+                LIMIT 3
+            """, (term,)).fetchall()
+
+            if rows:
+                translations = list(dict.fromkeys(word for (word,) in rows))
+                return {
+                    "language": "en",
+                    "word": term,
+                    "meaning": "、".join(translations),
                 }
 
         else:

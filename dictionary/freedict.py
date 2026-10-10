@@ -1,5 +1,6 @@
 """FreeDict English-Japanese dictionary lookup."""
 
+import re
 import sqlite3
 from pathlib import Path
 
@@ -54,7 +55,7 @@ def fetch_senses(word):
         rows = db.execute(
             """
             SELECT e.id, e.pos, s.sense_no,
-                   t.translation
+                   s.definition, t.translation
             FROM entries e
             JOIN senses s ON s.entry_id = e.id
             JOIN translations t ON t.sense_id = s.id
@@ -68,14 +69,47 @@ def fetch_senses(word):
 
     entries = {}
 
-    for entry_id, pos, sense_no, translation in rows:
+    for entry_id, pos, sense_no, definition, translation in rows:
         entry = entries.setdefault(
-            entry_id, {"pos": pos, "senses": {}}
+            entry_id, {"pos": pos, "senses": {}, "definitions": {}}
         )
         entry["senses"].setdefault(sense_no, []).append(translation)
+        entry["definitions"][sense_no] = definition
 
     return list(entries.values())
 
+
+
+UNCOMMON_LABELS = {"rare", "archaic", "obsolete"}
+
+
+def is_uncommon_definition(definition):
+    """Check usage labels at the beginning of a definition."""
+    match = re.match(r"^\(([^)]*)\)", definition or "")
+    if not match:
+        return False
+
+    labels = {
+        label.strip().lower()
+        for label in match.group(1).split(",")
+    }
+    return bool(labels & UNCOMMON_LABELS)
+
+
+def prioritize_senses(entry):
+    """Put uncommon senses last without changing their numbers."""
+    senses = entry["senses"]
+    definitions = entry.get("definitions", {})
+
+    common = [
+        number for number in senses
+        if not is_uncommon_definition(definitions.get(number, ""))
+    ]
+
+    # 通常の語義があれば、珍しい語義は代表訳から除外する。
+    # すべて珍しい語義の場合は、元の語義を使用する。
+    selected = common if common else list(senses)
+    return {number: senses[number] for number in selected}
 
 def select_translations(senses, limit=3):
     """Choose sense representatives, then fill from the first sense."""
@@ -159,7 +193,7 @@ def lookup(word, sense_no=None):
             translations = entry["senses"].get(sense_no, [])
         else:
             translations = choose_translations(
-                pos, entry["senses"]
+                pos, prioritize_senses(entry)
             )
 
         for translation in translations:

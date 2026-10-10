@@ -20,6 +20,34 @@ ENGLISH_TEMPLATES = [
 _last_template = {}
 
 
+
+def natural_japanese_meaning(meaning):
+    """FreeDictの品詞付き訳語を読みやすく整える。"""
+    import re
+
+    groups = re.findall(r"\[[^\]]+\]\s*([^/]+)", meaning)
+    if not groups:
+        return meaning
+
+    translations = []
+    for group in groups:
+        for item in group.split("、"):
+            item = item.strip()
+            if item and item not in translations:
+                translations.append(item)
+
+    if not translations:
+        return meaning
+
+    first = translations[0]
+    others = translations[1:3]
+
+    if others:
+        quoted = "や".join(f"『{item}』" for item in others)
+        return f"『{first}』という意味だよ。{quoted}という意味でも使われるね"
+
+    return f"『{first}』という意味だよ"
+
 def make_reply(word, meaning, language):
     """直前と異なるセリフを選んで返す。"""
     if language == "ja":
@@ -28,6 +56,9 @@ def make_reply(word, meaning, language):
         templates = JAPANESE_TEMPLATES
     else:
         raise ValueError(f"Unsupported language: {language}")
+
+    if language == "en" and meaning.startswith("["):
+        return f"{word}は{natural_japanese_meaning(meaning)}。🍺"
 
     previous = _last_template.get(language)
     candidates = [t for t in templates if t != previous]
@@ -72,18 +103,116 @@ def make_not_found_reply(language):
     return template
 
 
+
+def make_structured_japanese_reply(word, entries):
+    """FreeDictの品詞・語義を使って自然な日本語の説明を作る。"""
+    from freedict import POS_LABELS, POS_PRIORITY, prioritize_senses
+
+    groups = []
+    for entry in entries:
+        pos = entry["pos"]
+        senses = prioritize_senses(entry)
+        if not senses:
+            continue
+
+        # 原則として第1語義の代表訳を優先する。
+        first_sense = next(iter(senses.values()), [])
+        translations = list(first_sense[:2])
+
+        # 形容詞は別の語義が重要な意味を持つことがある。
+        if pos == "adj" and len(senses) > 1:
+            second_sense = list(senses.values())[1]
+            if second_sense and second_sense[0] not in translations:
+                translations.append(second_sense[0])
+
+        if not translations:
+            continue
+
+        label = POS_LABELS.get(pos, pos)
+
+        # 同じ品詞の項目を統合し、訳語の重複を除く。
+        existing = next((g for g in groups if g[0] == pos), None)
+        if existing is not None:
+            for translation in translations:
+                if translation not in existing[2]:
+                    existing[2].append(translation)
+        else:
+            groups.append((pos, label, translations))
+
+    if not groups:
+        return None
+
+    # FreeDict本体と同じ品詞の優先順位を使用する。
+    groups.sort(key=lambda g: POS_PRIORITY.get(g[0], 99))
+
+    # 先に説明した訳語は、別の品詞で繰り返さない。
+    seen = set()
+    unique_groups = []
+    for pos, label, translations in groups:
+        unique = [t for t in translations if t not in seen]
+        limit = 3 if pos == "adj" else 2
+        selected = unique[:limit]
+        if selected:
+            seen.update(selected)
+            quoted = "や".join(f"『{t}』" for t in selected)
+            unique_groups.append((pos, label, quoted))
+
+    groups = unique_groups
+
+    if len(groups) == 1:
+        return f"{word}は{groups[0][2]}という意味だよ。🍺"
+
+    descriptions = [
+        f"{label}では{quoted}"
+        for _, label, quoted in groups[:3]
+    ]
+
+    return f"{word}は" + "、".join(descriptions) + "という意味だよ。🍺"
+
 def make_dictionary_replies(result):
     """検索結果からIRC送信用のメッセージ一覧を作る。"""
     if result is None:
         return []
 
-    first_line = make_reply(
-        result["word"],
-        result["meaning"],
-        result["language"],
-    )
+    if result["language"] == "en" and result.get("entries"):
+        first_line = make_structured_japanese_reply(
+            result["word"],
+            result["entries"],
+        )
+    else:
+        first_line = None
+
+    if first_line is None:
+        first_line = make_reply(
+            result["word"],
+            result["meaning"],
+            result["language"],
+        )
 
     messages = [first_line]
+
+    # 口語・俗語の補足説明。FreeDictとJMdictの両方に対応。
+    if result["language"] == "en":
+        from overrides import SLANG_NOTES
+
+        slang = SLANG_NOTES.get(result["word"].lower())
+        if slang:
+            parts = []
+
+            meanings = slang.get("meanings", [])
+            if meanings:
+                quoted = "や".join(f"『{m}』" for m in meanings)
+                parts.append(f"{slang['label']}では{quoted}")
+
+            verbs = slang.get("verb", [])
+            if verbs:
+                quoted = "や".join(f"『{v}』" for v in verbs)
+                parts.append(f"動詞では{quoted}")
+
+            if parts:
+                messages.append(
+                    "補足: " + "、".join(parts) + "という意味でも使うよ。"
+                )
 
     note = result.get("note")
     if note:
