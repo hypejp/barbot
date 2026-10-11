@@ -1181,6 +1181,27 @@ def load_citypop():
 CITYPOP_TRACKS = load_citypop()
 CITYPOP_RECENT = deque(maxlen=50)
 
+def load_aor():
+    path = BASE / "aor.tsv"
+    tracks = []
+
+    try:
+        with path.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.rstrip("\r\n")
+                if not line:
+                    continue
+                artist, title = line.split("\t", 1)
+                tracks.append((artist, title))
+    except Exception as e:
+        print(f"Failed to load aor.tsv: {e}", flush=True)
+
+    return tracks
+
+
+AOR_TRACKS = load_aor()
+AOR_RECENT = deque(maxlen=50)
+
 class BarBot(irc.bot.SingleServerIRCBot):
     def __init__(self):
         context = ssl.create_default_context()
@@ -1322,7 +1343,7 @@ class BarBot(irc.bot.SingleServerIRCBot):
             if msg == "!help":
                 c.privmsg(
                     CHANNEL,
-                    "!ping !dic [word] !menu !drink [category] !movie [title] !citypop !remind [5m message/list/del N] !loc [City, Country] !w [location] !wt [location] !history !who !topic !quote [list/add/del] !rank(quote) !seen nick !autoquote [on/off/status] !uptime !about !version !mood"
+                    "!ping !dic [word] !menu !drink [category] !movie [title] !citypop !aor !remind [5m message/list/del N] !loc [City, Country] !w [location] !wt [location] !history !who !topic !quote [list/add/del] !rank(quote) !seen nick !autoquote [on/off/status] !uptime !about !version !mood"
                 )
 
             elif lowered == "!dic":
@@ -1663,6 +1684,23 @@ class BarBot(irc.bot.SingleServerIRCBot):
                     c.privmsg(CHANNEL, url)
                 else:
                     c.privmsg(CHANNEL, "City pop playlist is empty.")
+
+            elif msg == "!aor":
+                if AOR_TRACKS:
+                    candidates = [track for track in AOR_TRACKS if track not in AOR_RECENT]
+
+                    if not candidates:
+                        AOR_RECENT.clear()
+                        candidates = AOR_TRACKS
+
+                    artist, title = random.choice(candidates)
+                    AOR_RECENT.append((artist, title))
+
+                    url = "https://www.youtube.com/results?search_query=" + quote_plus(f"{artist} {title}")
+                    c.privmsg(CHANNEL, f"{artist} - {title}")
+                    c.privmsg(CHANNEL, url)
+                else:
+                    c.privmsg(CHANNEL, "AOR playlist is empty.")
 
             elif msg == "!history":
                 if recent_history:
