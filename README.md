@@ -23,8 +23,9 @@ barbot provides small, optional features for IRC conversations:
 - `!dic [word]` — Look up English and Japanese words.
 - `!menu` / `!drink [category]` — Explore the bar's drink menu.
 - `!movie [title]` — Look up movie information.
-- `!citypop` — Discover a random city pop track.
-- `!aor` — Discover a random track from a 128-song AOR playlist.
+- `!citypop` — Pick a random track from the city pop playlist.
+- `!aor` — Pick a random track from the AOR playlist.
+- `!loc [City, Country]` — Set your location for weather and local time commands.
 - `!w [location]` — Check the weather.
 - `!wt [location]` — Check the local time.
 - `!remind` — Set a reminder.
