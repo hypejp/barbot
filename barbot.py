@@ -1160,6 +1160,31 @@ def geocode_location(location):
         return None
 
 
+
+def world_time_country(location):
+    """Return the country code if location is a country name or code."""
+    name = location.strip().casefold()
+
+    aliases = {
+        "usa": "US",
+        "u.s.a.": "US",
+        "united states of america": "US",
+        "uk": "GB",
+        "u.k.": "GB",
+        "united kingdom": "GB",
+        "great britain": "GB",
+    }
+
+    if name in aliases:
+        return aliases[name]
+
+    for code, country in pytz.country_names.items():
+        if name in {code.casefold(), country.casefold()}:
+            return code
+
+    return None
+
+
 def load_citypop():
     path = BASE / "citypop.tsv"
     tracks = []
@@ -1539,27 +1564,43 @@ class BarBot(irc.bot.SingleServerIRCBot):
                 else:
                     location = msg[4:].strip()
 
-                place = geocode_location(location)
-
-                if not place:
-                    c.privmsg(CHANNEL, f"{nick}: location not found: {location}")
+                country_code = world_time_country(location)
+                if country_code:
+                    examples = {
+                        "JP": "Tokyo, Japan",
+                        "US": "New York, USA",
+                        "DE": "Berlin, Germany",
+                    }
+                    example = examples.get(country_code, "City, Country")
+                    c.privmsg(
+                        CHANNEL,
+                        f"{nick}: Please specify a city (e.g. {example})."
+                    )
                 else:
-                    timezone_name = place.get("timezone")
-                    try:
-                        tz = pytz.timezone(timezone_name)
-                        local_time = datetime.now(tz)
+                    place = geocode_location(location)
 
-                        place_name = place.get("name", location)
-                        country = place.get("country", "")
-                        label = f"{place_name}, {country}" if country else place_name
+                    if not place:
+                        c.privmsg(CHANNEL, f"{nick}: location not found: {location}")
+                    else:
+                        timezone_name = place.get("timezone")
+                        try:
+                            tz = pytz.timezone(timezone_name)
+                            local_time = datetime.now(tz)
 
-                        c.privmsg(
-                            CHANNEL,
-                            f"{label}: {local_time.strftime('%H:%M %Z (%a)')}"
-                        )
-                    except Exception as e:
-                        print(f"World time failed for {location}: {e}", flush=True)
-                        c.privmsg(CHANNEL, f"{nick}: could not get local time for {location}")
+                            place_name = place.get("name", location)
+                            country = place.get("country", "")
+                            if country and place_name.casefold() != country.casefold():
+                                label = f"{place_name}, {country}"
+                            else:
+                                label = place_name
+
+                            c.privmsg(
+                                CHANNEL,
+                                f"{label}: {local_time.strftime('%H:%M %Z (%a)')}"
+                            )
+                        except Exception as e:
+                            print(f"World time failed for {location}: {e}", flush=True)
+                            c.privmsg(CHANNEL, f"{nick}: could not get local time for {location}")
 
             elif lowered == "!loc":
                 key = nick.lower()
