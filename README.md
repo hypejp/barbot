@@ -15,6 +15,42 @@ Its goal is not to dominate conversations, but to help create the atmosphere of 
 - No assumptions about time zones or seasons.
 - Atmosphere is more important than features.
 
+## Features
+
+barbot provides small, optional features for IRC conversations:
+
+- `!ping` — Check whether barbot is responding.
+- `!dic [word]` — Look up English and Japanese words.
+- `!menu` / `!drink [category]` — Explore the bar's drink menu.
+- `!movie [title]` — Look up movie information.
+- `!citypop` — Discover a random city pop track.
+- `!aor` — Discover a random track from a 128-song AOR playlist.
+- `!w [location]` — Check the weather.
+- `!wt [location]` — Check the local time.
+- `!remind` — Set a reminder.
+- `!quote` — Manage and display quotes.
+- `!seen [nick]` — Check when someone was last seen.
+- `!help` — Display the command list.
+
+Music commands also provide YouTube search links.
+
+## Technical Details
+
+- Written in Python.
+- Runs on a Debian Linux VPS.
+- Connects to Libera.Chat.
+- Uses environment variables for external API keys.
+- Includes automated unit tests.
+- Developed and maintained by hype.
+
+## Source Code and Licensing
+
+The source code is publicly viewable, but no open-source license
+has been granted at this time.
+
+All rights are reserved unless otherwise stated.
+The dictionary data described below has its own separate license.
+
 ## Status
 
 🚧 Active development
