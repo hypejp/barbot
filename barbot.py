@@ -1566,16 +1566,26 @@ class BarBot(irc.bot.SingleServerIRCBot):
 
                 country_code = world_time_country(location)
                 if country_code:
-                    examples = {
-                        "JP": "Tokyo, Japan",
-                        "US": "New York, USA",
-                        "DE": "Berlin, Germany",
-                    }
-                    example = examples.get(country_code, "City, Country")
-                    c.privmsg(
-                        CHANNEL,
-                        f"{nick}: Please specify a city (e.g. {example})."
-                    )
+                    timezones = pytz.country_timezones.get(country_code, [])
+
+                    if len(timezones) == 1:
+                        tz = pytz.timezone(timezones[0])
+                        local_time = datetime.now(tz)
+                        country_name = pytz.country_names[country_code]
+                        c.privmsg(
+                            CHANNEL,
+                            f"{country_name}: {local_time.strftime('%H:%M %Z (%a)')}"
+                        )
+                    else:
+                        examples = {
+                            "US": "New York, USA",
+                            "DE": "Berlin, Germany",
+                        }
+                        example = examples.get(country_code, "City, Country")
+                        c.privmsg(
+                            CHANNEL,
+                            f"{nick}: Please specify a city (e.g. {example})."
+                        )
                 else:
                     place = geocode_location(location)
 

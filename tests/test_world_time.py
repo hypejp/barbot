@@ -26,6 +26,7 @@ namespace = {
             "DE": "Germany",
             "GB": "Britain (UK)",
             "ES": "Spain",
+            "IS": "Iceland",
         }
     )
 }
@@ -136,10 +137,23 @@ class TestWorldTimeHandler(unittest.TestCase):
         )
 
         from unittest.mock import Mock
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
 
         env = {
             "world_time_country": world_time_country,
             "CHANNEL": "##bar-jp",
+            "pytz": SimpleNamespace(
+                country_timezones={
+                    "US": ["America/New_York", "America/Los_Angeles"],
+                    "DE": ["Europe/Berlin", "Europe/Busingen"],
+                    "JP": ["Asia/Tokyo"],
+                    "IS": ["Atlantic/Reykjavik"],
+                },
+                country_names={"JP": "Japan", "IS": "Iceland"},
+                timezone=ZoneInfo,
+            ),
+            "datetime": datetime,
             "geocode_location": Mock(
                 side_effect=AssertionError("Geocoding must not be called")
             ),
@@ -148,7 +162,6 @@ class TestWorldTimeHandler(unittest.TestCase):
         exec(compile(module, str(SOURCE), "exec"), env)
 
         for location, example in [
-            ("Japan", "Tokyo, Japan"),
             ("USA", "New York, USA"),
             ("Germany", "Berlin, Germany"),
         ]:
@@ -163,6 +176,19 @@ class TestWorldTimeHandler(unittest.TestCase):
                 connection.privmsg.assert_called_once_with(
                     "##bar-jp",
                     f"hype: Please specify a city (e.g. {example}).",
+                )
+
+
+        for country in ("Japan", "Iceland"):
+            with self.subTest(country=country):
+                connection = Mock()
+                env["run_wt"](f"!wt {country}", "hype", connection, {})
+                connection.privmsg.assert_called_once()
+                channel, reply = connection.privmsg.call_args.args
+                self.assertEqual(channel, "##bar-jp")
+                self.assertRegex(
+                    reply,
+                    rf"^{country}: [0-9]{{2}}:[0-9]{{2}} .+ \([A-Za-z]{{3}}\)$",
                 )
 
 
