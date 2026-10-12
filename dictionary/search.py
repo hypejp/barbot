@@ -5,6 +5,7 @@ from overrides import ENGLISH_OVERRIDES
 from formatting import split_gloss
 from freedict import lookup as freedict_lookup
 from freedict import fetch_senses as freedict_fetch_senses
+from jmnedict import lookup as jmnedict_lookup
 from pathlib import Path
 
 DATABASE = Path(__file__).resolve().parent / "jmdict.sqlite"
@@ -134,7 +135,7 @@ def lookup(term):
                     "note": note,
                 }
 
-    return None
+    return jmnedict_lookup(term)
 
 
 def lookup_sense(term, sense_no):

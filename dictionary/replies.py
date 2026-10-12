@@ -215,6 +215,30 @@ def make_dictionary_replies(result):
     if result is None:
         return []
 
+    if result.get("source") == "jmnedict":
+        labels = {
+            "full name of a particular person": "人物名",
+            "place name": "地名",
+            "family or surname": "姓",
+            "male given name or forename": "男性名",
+            "female given name or forename": "女性名",
+            "given name or forename, gender not specified": "名前",
+            "railway station": "駅名",
+            "company name": "会社名",
+            "organization name": "組織名",
+            "product name": "商品名",
+            "work of art, literature, music, etc. name": "作品名",
+        }
+        types = result.get("name_types", [])
+        categories = list(dict.fromkeys(
+            labels.get(name_type, name_type) for name_type in types
+        ))
+        category = f" [{', '.join(categories)}]" if categories else ""
+        first_line = (
+            f"{result['word']}{category}: {result['meaning']} 🍺"
+        )
+        return [first_line]
+
     if result["language"] == "en" and result.get("entries"):
         first_line = make_structured_japanese_reply(
             result["word"],
