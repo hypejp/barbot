@@ -714,7 +714,11 @@ def fetch_title(url):
             if title:
                 return title.strip()[:120]
 
-        r = requests.get(url, timeout=3)
+        r = requests.get(
+            url,
+            headers={"User-Agent": "barbot/1.0 (IRC URL title preview; https://github.com/hypejp/barbot)"},
+            timeout=3,
+        )
         if r.status_code == 406:
             print(f"URL title HTTP 406; retrying: {url}", flush=True)
             r = requests.get(
