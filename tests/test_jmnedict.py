@@ -38,13 +38,32 @@ class TestJMnedict(unittest.TestCase):
     def test_person_reply(self):
         messages = make_dictionary_replies(lookup("徳川家康"))
         self.assertEqual(len(messages), 1)
-        self.assertIn("[人物名]", messages[0])
+        self.assertIn("1543-1616", messages[0])
+        self.assertIn("shogun from 1603 to 1605", messages[0])
         self.assertIn("Tokugawa Ieyasu", messages[0])
 
     def test_station_reply(self):
         messages = make_dictionary_replies(lookup("東京駅"))
-        self.assertIn("[駅名]", messages[0])
+        self.assertIn("railway station", messages[0])
         self.assertIn("Tokyo Station", messages[0])
+
+
+    def test_multiple_surname_readings(self):
+        messages = make_dictionary_replies(lookup("東海林"))
+        self.assertEqual(len(messages), 1)
+        self.assertIn("Japanese surname", messages[0])
+        self.assertIn("Possible readings include", messages[0])
+        self.assertIn("しょうじ (Shouji)", messages[0])
+        self.assertIn("とうかいりん (Tōkairin)", messages[0])
+
+
+    def test_multiple_surname_readings(self):
+        messages = make_dictionary_replies(lookup("東海林"))
+        self.assertEqual(len(messages), 1)
+        self.assertIn("Japanese surname", messages[0])
+        self.assertIn("Possible readings include", messages[0])
+        self.assertIn("しょうじ (Shouji)", messages[0])
+        self.assertIn("とうかいりん (Tōkairin)", messages[0])
 
 
 if __name__ == "__main__":
