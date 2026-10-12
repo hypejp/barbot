@@ -6,6 +6,7 @@ from formatting import split_gloss
 from freedict import lookup as freedict_lookup
 from freedict import fetch_senses as freedict_fetch_senses
 from jmnedict import lookup as jmnedict_lookup
+from jmnedict import lookup_english as jmnedict_lookup_english
 from pathlib import Path
 
 DATABASE = Path(__file__).resolve().parent / "jmdict.sqlite"
@@ -134,6 +135,9 @@ def lookup(term):
                     "meaning": display_meaning,
                     "note": note,
                 }
+
+    if term.isascii():
+        return jmnedict_lookup_english(term)
 
     normalized = JAPANESE_NAME_ALIASES.get(term, term)
     result = jmnedict_lookup(normalized)

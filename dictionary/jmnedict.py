@@ -100,3 +100,48 @@ def lookup(term):
         "name_types": best["name_types"],
         "alternatives": alternatives,
     }
+
+
+def lookup_english(term):
+    """英語の固有名詞から日本語表記を検索する。"""
+    term = term.strip()
+    if not term or not term.isascii() or not DATABASE.is_file():
+        return None
+
+    with sqlite3.connect(str(DATABASE)) as db:
+        rows = db.execute("""
+            SELECT DISTINCT
+                e.entry_id,
+                COALESCE(s.spelling, r.reading),
+                r.reading
+            FROM english_lookup AS e
+            JOIN readings AS r ON r.entry_id = e.entry_id
+            LEFT JOIN spellings AS s ON s.entry_id = e.entry_id
+            WHERE e.lookup_key = ?
+            ORDER BY e.entry_id
+        """, (term.casefold(),)).fetchall()
+
+    candidates = []
+    seen = set()
+
+    for entry_id, spelling, reading in rows:
+        if spelling in seen:
+            continue
+        seen.add(spelling)
+        candidates.append({
+            "spelling": spelling,
+            "reading": reading,
+        })
+
+    if not candidates:
+        return None
+
+    displayed = candidates[:3]
+    return {
+        "language": "en",
+        "source": "jmnedict_reverse",
+        "word": term,
+        "meaning": "、".join(item["spelling"] for item in displayed),
+        "candidates": displayed,
+        "total_candidates": len(candidates),
+    }

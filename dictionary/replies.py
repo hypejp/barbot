@@ -219,6 +219,21 @@ def make_dictionary_replies(result):
         from jmnedict_replies import make_jmnedict_reply
         return [make_jmnedict_reply(result)]
 
+    if result.get("source") == "jmnedict_reverse":
+        word = result["word"]
+        candidates = result["candidates"]
+        total = result["total_candidates"]
+
+        names = "、".join(f"『{item['spelling']}』" for item in candidates)
+
+        if total == 1:
+            return [f"{word}は日本語で{names}と表記されるよ。🍺"]
+
+        return [
+            f"{word}の日本語表記には{names}などがあるよ。"
+            f"(候補{total}件) 🍺"
+        ]
+
     if result["language"] == "en" and result.get("entries"):
         first_line = make_structured_japanese_reply(
             result["word"],

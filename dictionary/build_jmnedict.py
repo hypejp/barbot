@@ -1,6 +1,7 @@
 import gzip
 import sqlite3
 import xml.etree.ElementTree as ET
+from add_jmnedict_reverse import create_reverse_lookup
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent
@@ -116,6 +117,7 @@ try:
     CREATE INDEX idx_name_types ON name_types(entry_id);
     """)
 
+    reverse_count = create_reverse_lookup(db)
     db.commit()
 
 except Exception:
@@ -128,4 +130,5 @@ db.close()
 
 print(f"Created: {DATABASE}")
 print(f"Entries: {count:,}")
+print(f"English reverse lookup keys: {reverse_count:,}")
 print(f"Size: {DATABASE.stat().st_size / 1024 / 1024:.1f} MB")
