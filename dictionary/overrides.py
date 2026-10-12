@@ -21,3 +21,9 @@ SLANG_NOTES = {
 TRANSLATION_EXCLUSIONS = {
     "music": {"ミュージック"},
 }
+
+
+# JMnedictに登録されている表記へ正規化する日本語の別表記。
+JAPANESE_NAME_ALIASES = {
+    "アイラ島": "アイレー島",
+}

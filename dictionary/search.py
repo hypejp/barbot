@@ -1,7 +1,7 @@
 import sqlite3
 import sys
 
-from overrides import ENGLISH_OVERRIDES
+from overrides import ENGLISH_OVERRIDES, JAPANESE_NAME_ALIASES
 from formatting import split_gloss
 from freedict import lookup as freedict_lookup
 from freedict import fetch_senses as freedict_fetch_senses
@@ -135,7 +135,11 @@ def lookup(term):
                     "note": note,
                 }
 
-    return jmnedict_lookup(term)
+    normalized = JAPANESE_NAME_ALIASES.get(term, term)
+    result = jmnedict_lookup(normalized)
+    if result and normalized != term:
+        result["word"] = f"{term}({term})"
+    return result
 
 
 def lookup_sense(term, sense_no):

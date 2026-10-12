@@ -57,13 +57,22 @@ class TestJMnedict(unittest.TestCase):
         self.assertIn("とうかいりん (Tōkairin)", messages[0])
 
 
-    def test_multiple_surname_readings(self):
-        messages = make_dictionary_replies(lookup("東海林"))
-        self.assertEqual(len(messages), 1)
-        self.assertIn("Japanese surname", messages[0])
-        self.assertIn("Possible readings include", messages[0])
-        self.assertIn("しょうじ (Shouji)", messages[0])
-        self.assertIn("とうかいりん (Tōkairin)", messages[0])
+    def test_islay_alias(self):
+        result = lookup("アイラ島")
+        self.assertEqual(result["source"], "jmnedict")
+        self.assertIn("Islay", result["meaning"])
+        self.assertTrue(result["word"].startswith("アイラ島("))
+
+    def test_islay_original_spelling(self):
+        result = lookup("アイレー島")
+        self.assertEqual(result["source"], "jmnedict")
+        self.assertIn("Islay", result["meaning"])
+        self.assertTrue(result["word"].startswith("アイレー島("))
+
+    def test_ira_name_unchanged(self):
+        result = lookup("アイラ")
+        self.assertEqual(result["source"], "jmnedict")
+        self.assertEqual(result["meaning"], "Ira")
 
 
 if __name__ == "__main__":
