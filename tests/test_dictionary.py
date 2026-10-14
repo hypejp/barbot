@@ -47,6 +47,19 @@ class TestDictionary(unittest.TestCase):
 
 
 
+    def test_multiple_japanese_senses(self):
+        result = lookup("濃い")
+        self.assertIsNotNone(result)
+        self.assertEqual(result["meaning"], "deep (colour)")
+        self.assertEqual(
+            result["senses"][:3],
+            [
+                "deep (colour)",
+                "strong (flavour, smell, etc.)",
+                "thick (consistency)",
+            ],
+        )
+
     def test_food_explanations(self):
         cases = {
             "餃子": ("gyoza", "Chinese-origin dumplings"),

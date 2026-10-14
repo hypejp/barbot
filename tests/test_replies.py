@@ -28,6 +28,39 @@ class TestDictionaryReplies(unittest.TestCase):
         self.assertIn("music", reply)
         self.assertIn("音楽(おんがく)", reply)
 
+    def test_multiple_japanese_senses_reply(self):
+        result = {
+            "language": "ja",
+            "word": "濃い(こい)",
+            "meaning": "deep (colour)",
+            "note": None,
+            "senses": [
+                "deep (colour)",
+                "strong (flavour, smell, etc.)",
+                "thick (consistency)",
+                "strong (possibility, etc.)",
+            ],
+        }
+        messages = make_dictionary_replies(result)
+        self.assertEqual(len(messages), 1)
+        self.assertIn("deep (colour)", messages[0])
+        self.assertIn("strong (flavour, smell, etc.)", messages[0])
+        self.assertIn("thick (consistency)", messages[0])
+        self.assertNotIn("strong (possibility, etc.)", messages[0])
+
+    def test_food_reply_on_one_line(self):
+        result = {
+            "language": "ja",
+            "word": "餃子(ギョーザ)",
+            "meaning": "gyoza",
+            "note": "Chinese-origin dumplings, commonly pan-fried in Japan",
+            "senses": ["gyoza"],
+        }
+        messages = make_dictionary_replies(result)
+        self.assertEqual(len(messages), 1)
+        self.assertIn("gyoza", messages[0])
+        self.assertIn("Chinese-origin dumplings", messages[0])
+
     def test_reply_with_note(self):
         result = {
             "language": "ja",

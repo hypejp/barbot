@@ -243,11 +243,18 @@ def make_dictionary_replies(result):
         first_line = None
 
     if first_line is None:
-        first_line = make_reply(
-            result["word"],
-            result["meaning"],
-            result["language"],
-        )
+        senses = result.get("senses", [])
+        if result["language"] == "ja" and len(senses) > 1:
+            meanings = ", ".join(senses[:3])
+            first_line = (
+                f'{result["word"]}: {meanings}. 🍺'
+            )
+        else:
+            first_line = make_reply(
+                result["word"],
+                result["meaning"],
+                result["language"],
+            )
 
     messages = [first_line]
 
@@ -276,8 +283,17 @@ def make_dictionary_replies(result):
 
     note = result.get("note")
     if note:
-        label = "Note" if result["language"] == "ja" else "補足"
-        messages.append(f"{label}: {note}")
+        if (
+            result["language"] == "ja"
+            and result["meaning"] in {"gyoza", "shumai", "takoyaki", "okonomiyaki"}
+            and len(result.get("senses", [])) <= 1
+        ):
+            messages = [
+                f'{result["word"]}: {result["meaning"]} ({note}). 🍺'
+            ]
+        else:
+            label = "Note" if result["language"] == "ja" else "補足"
+            messages.append(f"{label}: {note}")
 
     return messages
 

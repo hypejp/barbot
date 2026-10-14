@@ -116,7 +116,7 @@ def lookup(term):
 
         else:
             row = db.execute("""
-                SELECT e.word, e.reading, e.meaning
+                SELECT e.id, e.word, e.reading, e.meaning
                 FROM japanese AS j
                 JOIN entries AS e ON e.id = j.entry_id
                 WHERE j.term = ?
@@ -127,13 +127,29 @@ def lookup(term):
             """, (term, term)).fetchone()
 
             if row:
-                word, reading, meaning = row
+                entry_id, word, reading, meaning = row
                 display_meaning, note = split_gloss(meaning)
+
+                glosses = db.execute("""
+                    SELECT s.sense_no, s.gloss
+                    FROM senses AS s
+                    WHERE s.entry_id = ?
+                    ORDER BY s.sense_no, s.gloss_no
+                """, (entry_id,)).fetchall()
+
+                representative_senses = []
+                seen_numbers = set()
+                for sense_no, gloss in glosses:
+                    if sense_no not in seen_numbers:
+                        representative_senses.append(gloss)
+                        seen_numbers.add(sense_no)
+
                 return {
                     "language": "ja",
                     "word": f"{word}({reading})",
                     "meaning": display_meaning,
                     "note": note,
+                    "senses": representative_senses,
                 }
 
     if term.isascii():
