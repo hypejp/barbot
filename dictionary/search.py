@@ -3,6 +3,7 @@ import sys
 
 from overrides import ENGLISH_OVERRIDES, JAPANESE_NAME_ALIASES
 from formatting import split_gloss
+from food import get_food_description, get_ambiguous_food
 from freedict import lookup as freedict_lookup
 from freedict import fetch_senses as freedict_fetch_senses
 from jmnedict import lookup as jmnedict_lookup
@@ -144,12 +145,22 @@ def lookup(term):
                         representative_senses.append(gloss)
                         seen_numbers.add(sense_no)
 
+                food_description = get_food_description(word)
+                food_english_name = None
+
+                # 読み方が一致する場合だけ、曖昧な料理名を補完する。
+                ambiguous_food = get_ambiguous_food(reading)
+                if ambiguous_food:
+                    food_english_name, food_description = ambiguous_food
+
                 return {
                     "language": "ja",
                     "word": f"{word}({reading})",
                     "meaning": display_meaning,
                     "note": note,
                     "senses": representative_senses,
+                    "food_description": food_description,
+                    "food_english_name": food_english_name,
                 }
 
     if term.isascii():

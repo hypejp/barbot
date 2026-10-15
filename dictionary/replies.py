@@ -258,6 +258,26 @@ def make_dictionary_replies(result):
 
     messages = [first_line]
 
+    food_description = result.get("food_description")
+    if result["language"] == "ja" and food_description:
+        ambiguous_foods = {"大福", "蕎麦"}
+        headword = result["word"].split("(", 1)[0]
+
+        if headword in ambiguous_foods:
+            messages.append(f"Food: {food_description}.")
+        else:
+            from food import get_food_english_name
+
+            english_name = result.get("food_english_name")
+            if not english_name:
+                english_name = get_food_english_name(
+                    headword, result["meaning"]
+                )
+            messages = [
+                f'{result["word"]}: {english_name} '
+                f'({food_description}). 🍺'
+            ]
+
     # 口語・俗語の補足説明。FreeDictとJMdictの両方に対応。
     if result["language"] == "en":
         from overrides import SLANG_NOTES
@@ -282,7 +302,7 @@ def make_dictionary_replies(result):
                 )
 
     note = result.get("note")
-    if note:
+    if note and not food_description:
         if (
             result["language"] == "ja"
             and result["meaning"] in {"gyoza", "shumai", "takoyaki", "okonomiyaki"}
