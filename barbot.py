@@ -719,6 +719,13 @@ def fetch_title(url):
             headers={"User-Agent": "barbot/1.0 (IRC URL title preview; https://github.com/hypejp/barbot)"},
             timeout=3,
         )
+        if r.status_code == 403:
+            print(f"URL title HTTP 403; retrying with browser User-Agent: {url}", flush=True)
+            r = requests.get(
+                url,
+                headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},
+                timeout=5,
+            )
         if r.status_code == 406:
             print(f"URL title HTTP 406; retrying: {url}", flush=True)
             r = requests.get(

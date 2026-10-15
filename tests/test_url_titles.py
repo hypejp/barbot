@@ -41,6 +41,23 @@ class TestURLTitles(unittest.TestCase):
         self.assertEqual(title, "Sekisui House - Wikipedia")
         self.assertIn("User-Agent", get.call_args.kwargs["headers"])
 
+    def test_http_403_retries_with_browser_user_agent(self):
+        forbidden = Mock()
+        forbidden.status_code = 403
+        forbidden.raise_for_status.side_effect = requests.HTTPError("403 Forbidden")
+
+        success = Mock()
+        success.status_code = 200
+        success.text = "<html><head><title>Example Album - TOWER RECORDS</title></head></html>"
+        success.apparent_encoding = "utf-8"
+
+        with patch.object(requests, "get", side_effect=[forbidden, success]) as get:
+            title = load_fetch_title()("https://tower.jp/item/484336")
+
+        self.assertEqual(title, "Example Album - TOWER RECORDS")
+        self.assertEqual(get.call_count, 2)
+        self.assertIn("Mozilla/5.0", get.call_args.kwargs["headers"]["User-Agent"])
+
     def test_youtube_oembed(self):
         response = Mock()
         response.json.return_value = {"title": "Example YouTube Video"}
